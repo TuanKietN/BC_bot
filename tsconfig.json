@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-<<<<<<< HEAD
     "module": "commonjs",
     "declaration": true,
     "removeComments": true,
@@ -12,36 +11,13 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
-=======
-    "target": "ES2020",
-    "module": "commonjs",
-    "lib": ["ES2020"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strictBindCallApply": false,
-    "esModuleInterop": true,
->>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6
     "skipLibCheck": true,
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noImplicitAny": false,
-<<<<<<< HEAD
     "strictBindCallApply": false,
     "noFallthroughCasesInSwitch": false,
     "esModuleInterop": true,
-    "typeRoots": [
-      "node_modules/@types",
-      "src/bot/types"
-    ]
+    "typeRoots": ["node_modules/@types", "src/bot/types"]
   }
 }
-=======
-    "resolveJsonModule": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "noFallthroughCasesInSwitch": false
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
-} 
->>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6
