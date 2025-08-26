@@ -1,0 +1,54 @@
+{
+  "name": "hiroshima-bot-mezon",
+  "version": "1.0.0",
+  "description": "A Mezon SDK bot implementing a card game (21)",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "test": "jest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate"
+  },
+  "keywords": [
+    "mezon",
+    "bot",
+    "card-game",
+    "21"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/joi": "^17.1.1",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/event-emitter": "^3.0.1",
+    "@nestjs/platform-express": "^11.1.1",
+    "@nestjs/testing": "^11.1.1",
+    "@prisma/client": "6.5.0",
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^20.11.19",
+    "dotenv": "^16.5.0",
+    "ioredis": "^5.6.1",
+    "kysely": "^0.28.2",
+    "mezon-sdk": "2.7.96",
+    "prisma": "^6.7.0",
+    "prisma-kysely": "^1.8.0",
+    "reflect-metadata": "^0.2.2",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.3.3"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@types/jest": "^29.5.12",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2"
+  }
+}
