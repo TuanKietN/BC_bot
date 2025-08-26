@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+<<<<<<< HEAD
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MezonModule } from 'src/mezon/mezon.module';
 
@@ -69,3 +70,13 @@ import { AskCommand } from './commands/ask/ask.command';
   exports: [BotGateway, BotStateService],
 })
 export class BotModule {}
+=======
+import { BotGateway } from './bot.gateway';
+import { RedisModule } from '../redis/redis.module';
+@Module({
+  imports: [RedisModule],
+  providers: [BotGateway],
+  exports: [BotGateway],
+})
+export class BotModule {}
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6

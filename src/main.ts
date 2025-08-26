@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 // Tăng giới hạn listener cho toàn bộ ứng dụng (nên đặt ở đầu file)
 require('events').EventEmitter.defaultMaxListeners = 50;
 
@@ -58,3 +59,16 @@ process.on('uncaughtException', (error) => {
 });
 
 bootstrap();
+=======
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { BotGateway } from './bot/bot.gateway';
+import { MezonClient } from 'mezon-sdk';
+import * as dotenv from 'dotenv';
+dotenv.config();
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  await app.listen(process.env.PORT ?? 3123);
+}
+bootstrap();
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6

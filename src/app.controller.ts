@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AppService } from './app.service';
 import { BotGateway } from './bot/events/bot.gateways';
@@ -10,11 +11,20 @@ export class AppController {
     private readonly botGateway: BotGateway,
     private readonly botStateService: BotStateService
   ) {}
+=======
+import { Controller, Get } from '@nestjs/common';
+import { AppService } from './app.service';
+
+@Controller()
+export class AppController {
+  constructor(private readonly appService: AppService) {}
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
   }
+<<<<<<< HEAD
 
   // Đã loại bỏ hoàn toàn logic resetBot, chỉ trả về thông báo hướng dẫn
   @Get('/reset-bot')
@@ -79,3 +89,6 @@ export class AppController {
     }
   }
 }
+=======
+}
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6

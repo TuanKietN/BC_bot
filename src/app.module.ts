@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+<<<<<<< HEAD
 import * as Joi from 'joi';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -8,12 +9,27 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HealthController } from './health.controller';
+=======
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
+// import { MezonModule } from './mezon/mezon.module';
+import { ConfigModule } from '@nestjs/config';
+import * as Joi from '@hapi/joi';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { RedisModule } from './redis/redis.module';
+import { MezonModule } from './mezon/mezon.module';
+import { BotModule } from './bot/bot.module';
+import { TopupModule } from './hiro/commands/topup/topup.module';
+import { BaucuaModule } from './hiro/commands/baucua/baucua.module';
+
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
+<<<<<<< HEAD
         POSTGRES_HOST: Joi.string().required(),
         POSTGRES_PORT: Joi.number().required(),
         POSTGRES_USER: Joi.string().required(),
@@ -47,3 +63,19 @@ import { HealthController } from './health.controller';
   providers: [AppService],
 })
 export class AppModule {}
+=======
+        MEZON_TOKEN: Joi.string().required(),
+      }),
+    }),
+    RedisModule,
+    EventEmitterModule.forRoot(),
+    MezonModule,
+    BotModule,
+    TopupModule,
+    BaucuaModule,
+  ],
+  controllers: [AppController],
+  providers: [AppService],
+})
+export class AppModule {}
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6
