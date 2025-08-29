@@ -1,23 +1,23 @@
-export class MessageQueueStore {
-    private readonly queue: ReplyMezonMessage[] = [];
+// export class MessageQueueStore {
+//     private readonly queue: ReplyMezonMessage[] = [];
   
-    getMessageQueue() {
-      return this.queue;
-    }
+//     getMessageQueue() {
+//       return this.queue;
+//     }
   
-    addMessage(message: ReplyMezonMessage) {
-      this.queue.push(message);
-    }
+//     addMessage(message: ReplyMezonMessage) {
+//       this.queue.push(message);
+//     }
   
-    addMessages(messages: ReplyMezonMessage[]) {
-      this.queue.push(...messages);
-    }
+//     addMessages(messages: ReplyMezonMessage[]) {
+//       this.queue.push(...messages);
+//     }
   
-    getNextMessage(): ReplyMezonMessage | undefined {
-      return this.queue.shift();
-    }
+//     getNextMessage(): ReplyMezonMessage | undefined {
+//       return this.queue.shift();
+//     }
   
-    hasMessages(): boolean {
-      return this.queue.length > 0;
-    }
-  }
+//     hasMessages(): boolean {
+//       return this.queue.length > 0;
+//     }
+//   }

@@ -205,6 +205,7 @@ model BaucuaGame {
   updatedAt   DateTime    @updatedAt
   startedAt   DateTime?
   endedAt     DateTime?
+  creatorId   String
   totalBets   Int         @default(0)
   totalAmount Int         @default(0)
   

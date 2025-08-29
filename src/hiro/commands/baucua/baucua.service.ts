@@ -64,7 +64,7 @@ export class BaucuaService {
   async createBaucua(message: ChannelMessage) {
     const gameId = `${message.channel_id}_${Date.now()}`;
 
-    // Check if game already exists
+    // Check if game exists
     const existingGame = await this.prisma.baucuaGame.findFirst({
       where: {
         channelId: message.channel_id,
@@ -85,7 +85,7 @@ export class BaucuaService {
       });
       return;
     }
-    // Create game message with betting options
+
     const response = await this.mezon.sendMessage({
       type: 'channel',
       payload: {
@@ -96,73 +96,36 @@ export class BaucuaService {
             embed: [
               {
                 color: "#BCC0C0",
-                title: '🎲 BẦU CUA TÔM CÁ 🎲\n          Sẽ mở sau 1 phút',
-                description: 'Chọn cửa cược và số tiền để tham gia'
-              }
+                title: '🎲 BẦU CUA TÔM CÁ 🎲',
+                description: 'Chọn cửa cược và số tiền để tham gia',
+              },
             ],
             components: [
-                { components: [BauCuaSelect] },
-                {
-                  components: [
-                    {
-                      id: '5000',
-                      type: EMessageComponentType.BUTTON,
-                      component: {
-                        label: '5000',
-                        style: EButtonMessageStyle.SECONDARY,
-                      },
-                    },
-                    {
-                      id: '10000',
-                      type: EMessageComponentType.BUTTON,
-                      component: {
-                        label: '10000',
-                        style: EButtonMessageStyle.PRIMARY,
-                      },
-                    },
-                    {
-                      id: '20000',
-                      type: EMessageComponentType.BUTTON,
-                      component: {
-                        label: '20000',
-                        style: EButtonMessageStyle.SUCCESS,
-                      },
-                    },
-                    {
-                      id: '50000',
-                      type: EMessageComponentType.BUTTON,
-                      component: {
-                        label: '50000',
-                        style: EButtonMessageStyle.DANGER,
-                      },
-                    }
-                  ]
-                }
-              ],
+              { components: [BauCuaSelect] },
+              {
+                components: [
+                  { id: '5000', type: EMessageComponentType.BUTTON, component: { label: '5000', style: EButtonMessageStyle.SECONDARY } },
+                  { id: '10000', type: EMessageComponentType.BUTTON, component: { label: '10000', style: EButtonMessageStyle.PRIMARY } },
+                  { id: '20000', type: EMessageComponentType.BUTTON, component: { label: '20000', style: EButtonMessageStyle.SUCCESS } },
+                  { id: '50000', type: EMessageComponentType.BUTTON, component: { label: '50000', style: EButtonMessageStyle.DANGER } },
+                ]
+              }
+            ],
           },
         },
       },
     });
-    const game = await this.prisma.baucuaGame.create({
+
+    await this.prisma.baucuaGame.create({
       data: {
         id: gameId,
         channelId: message.channel_id,
         messageId: response.message_id,
         status: GameStatus.WAITING,
-        startedAt: new Date(),
+        startedAt: null, // ⚠️ chưa start
+        creatorId: message.sender_id,
       },
     });
-    if (response?.message_id) {
-      // Update game with message ID
-      await this.prisma.baucuaGame.update({
-        where: { id: gameId },
-        data: { messageId: response.message_id },
-      });
-
-      // Set timeout for auto-roll after 1 minute
-      const timeout = setTimeout(() => this.rollDiceAndPayout(gameId), 30000);
-      this.gameTimeouts.set(gameId, timeout);
-    }
   }
 
   private async rollDiceAndPayout(gameId: string) {
@@ -184,7 +147,7 @@ export class BaucuaService {
 
     // Check bot balance
     const botBalance = await this.prisma.user_balance.findUnique({
-      where: { user_id: '1840686507887693824' },
+      where: { user_id: '1924288420973121536' },
     });
 
     let diceResults: DiceSymbol[];
@@ -295,12 +258,12 @@ export class BaucuaService {
     // Update bot balance with profit
     if (botProfit > 0) {
       await this.prisma.user_balance.update({
-        where: { user_id: '1840686507887693824' },
+        where: { user_id: '1924288420973121536' },
         data: { balance: { increment: botProfit } },
       });
     } else {
       await this.prisma.user_balance.update({
-        where: { user_id: '1840686507887693824' },
+        where: { user_id: '1924288420973121536' },
         data: { balance: { decrement: Math.abs(botProfit) } },
       });
     }
@@ -424,60 +387,176 @@ export class BaucuaService {
     return emojiMap[symbol];
   }
 
-  async handleButtonClicked(data: MessageButtonClickedEvent) {
-    console.log(data);
-    const { message_id, button_id, sender_id, extra_data, user_id } = data;
-    const userBalance = await this.prisma.user_balance.findUnique({
+  private userChoices: Map<string, string> = new Map();
+
+  async handleSelectChoice(userId: string, value: string, channelId: string) {
+    // Tìm game hiện tại trong channel
+    const game = await this.prisma.baucuaGame.findFirst({
       where: {
-        user_id: user_id,
+        channelId,
+        status: GameStatus.WAITING,
+        endedAt: null,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+
+    if (!game) {
+      this.logger.warn(
+        `⚠️ Không tìm thấy ván đang chờ trong channel ${channelId}, user ${userId} chọn cửa bị bỏ qua`,
+      );
+      return;
+    }
+
+    // Nếu user không phải creator thì chặn
+    if (game.creatorId !== userId) {
+      this.logger.warn(
+        `❌ User ${userId} cố chọn cửa nhưng không phải chủ game (creator=${game.creatorId})`,
+      );
+      return;
+    }
+
+    // Reset state cũ của user trong channel (nếu có)
+    const key = `${userId}_${channelId}`;
+    if (this.userChoices.has(key)) {
+      this.logger.debug(`♻️ Reset userChoices[${key}] từ ${this.userChoices.get(key)}`);
+      this.userChoices.delete(key);
+    }
+
+    // Set lựa chọn mới
+    this.userChoices.set(key, value);
+
+    this.logger.log(
+      `✅ SET userChoices[${key}] = ${value} (${BaucuaMappingName[parseInt(value)]})`,
+    );
+
+    // Gửi xác nhận về channel
+    await this.mezon.sendMessage({
+      type: 'channel',
+      payload: {
+        channel_id: channelId,
+        message: {
+          type: 'system',
+          content: `👉 Bạn đã chọn cửa: ${BaucuaMappingName[parseInt(value)]}`,
+        },
       },
     });
-    if (!userBalance) { return; }
+  }
+
+
+  async handleButtonClicked(data: MessageButtonClickedEvent) {
+    if (data.button_id === 'BauCuaSelect') {
+      this.logger.debug(
+        `⏩ Bỏ qua event chọn cửa trong handleButtonClicked: ${JSON.stringify(
+          data,
+        )}`,
+      );
+      return;
+    }
+
+    const { button_id, user_id, channel_id } = data;
+    const key = `${user_id}_${channel_id}`;
+
+    this.logger.debug(
+      `📥 Nhận click tiền: user=${user_id}, channel=${channel_id}, money=${button_id}`,
+    );
+
+    const userBalance = await this.prisma.user_balance.findUnique({
+      where: { user_id },
+    });
+    if (!userBalance) return;
+
     if (userBalance.balance < parseInt(button_id)) {
+      this.logger.warn(
+        `❌ User ${user_id} (${userBalance.username}) không đủ tiền (${userBalance.balance}) để đặt ${button_id}`,
+      );
       await this.mezon.sendMessage({
         type: 'channel',
         payload: {
-          channel_id: data.channel_id,
+          channel_id,
           message: {
             type: 'system',
-            content: `Bạn ${userBalance.username} không có đủ tiền để đặt cược!`,
+            content: `❌ Bạn ${userBalance.username} không có đủ tiền để đặt cược!`,
           },
         },
       });
       return;
     }
+
+    // 🔑 Lấy lại cửa đã chọn từ state
+    const value = this.userChoices.get(key);
+    this.logger.log(`🔍 GET userChoices[${key}] = ${value}`);
+
+    if (!value) {
+      this.logger.warn(`⚠️ User ${user_id} chưa chọn cửa nhưng lại bấm tiền`);
+      await this.mezon.sendMessage({
+        type: 'channel',
+        payload: {
+          channel_id,
+          message: {
+            type: 'system',
+            content: `⚠️ Bạn cần chọn cửa (Bầu, Cua, Gà...) trước khi bấm số tiền!`,
+          },
+        },
+      });
+      return;
+    }
+
     const game = await this.prisma.baucuaGame.findFirst({
       where: {
-        channelId: data.channel_id,
+        channelId: channel_id,
         status: GameStatus.WAITING,
         endedAt: null,
       },
     });
     if (!game) return;
 
-    const userId = user_id;
-    const jsonString = extra_data;
-    const parsed = JSON.parse(jsonString);
-    const value = parsed.BauCua[0];
+    if (game.creatorId !== user_id) {
+      this.logger.warn(`❌ User ${user_id} không phải creator (${game.creatorId})`);
+      await this.mezon.sendMessage({
+        type: 'channel',
+        payload: {
+          channel_id,
+          message: {
+            type: 'system',
+            content: `⚠️ Chỉ người tạo ván (${game.creatorId}) mới được tham gia chơi!`,
+          },
+        },
+      });
+      return;
+    }
+
     await this.prisma.baucuaBet.create({
       data: {
         gameId: game.id,
-        userId: userId,
+        userId: user_id,
         symbol: BaucuaMappingChoice[parseInt(value)],
         amount: parseInt(button_id),
       },
     });
+
+    // Nếu đây là lần đặt cược đầu tiên => bắt đầu timer
+    if (!game.startedAt) {
+      await this.prisma.baucuaGame.update({
+        where: { id: game.id },
+        data: { startedAt: new Date() },
+      });
+
+      const timeout = setTimeout(() => this.rollDiceAndPayout(game.id), 15000);
+      this.gameTimeouts.set(game.id, timeout);
+
+      this.logger.log(`⏳ Game ${game.id} bắt đầu đếm ngược từ khi user đặt cược đầu tiên`);
+    }
+
     await this.prisma.user_balance.update({
-      where: {
-        user_id: userId,
-      },
-      data: {
-        balance: userBalance.balance - parseInt(button_id),
-      },
+      where: { user_id },
+      data: { balance: userBalance.balance - parseInt(button_id) },
     });
-    const noti = `Người chơi ${userBalance.username} đã đặt cược: ${BaucuaMappingName[parseInt(value)]} ${parseInt(button_id)}`
+
+    const noti = `Người chơi ${userBalance.username} đã đặt cược: ${BaucuaMappingName[parseInt(value)]} ${parseInt(button_id)}`;
+    this.logger.log(`💰 ${noti}`);
+
     await this.mezon.updateMessage({
-      channel_id: data.channel_id,
+      channel_id,
       message_id: game.messageId,
       content: {
         type: 'optional',
@@ -485,72 +564,12 @@ export class BaucuaService {
           embed: [
             {
               color: "#BCC0C0",
-              title: '🎲 BẦU CUA TÔM CÁ 🎲\n\t          Sẽ mở sau 1 phút',
-              description: noti
-            }
+              title: '🎲 BẦU CUA TÔM CÁ 🎲\n\t',
+              description: noti,
+            },
           ],
-          components: [
-            {
-              components: [
-                {
-                  id: "BauCua",
-                  type: EMessageComponentType.RADIO,
-                  component: [
-                    { label: "🎃 Bầu", value: "1", style: 3 },
-                    { label: "🦀 Cua", value: "2", style: 3 },
-                    { label: "🐔 Gà", value: "3", style: 3 },
-                    { label: "🦌 Nai", value: "4", style: 3 },
-                    { label: "🦐 Tôm", value: "5", style: 3 },
-                    { label: "🐟 Cá", value: "6", style: 3 }
-                  ]
-                }
-              ]
-            },
-            {
-              components: [
-                {
-                  id: "Slots",
-                  type: EMessageComponentType.ANIMATION,
-                  component: {
-                    url_image: "https://jaxx1911.github.io/GoldMiner/abcd.png",
-                    url_position: "https://jaxx1911.github.io/GoldMiner/abcd.json",
-                    pool: [
-                      ["1-0.png", "1-1.png", "1-2.png", "1-3.png", "1-4.png", "1-5.png"],
-                      ["1-1.png", "1-2.png", "1-3.png", "1-4.png", "1-5.png", "1-0.png"],
-                      ["1-2.png", "1-3.png", "1-4.png", "1-5.png", "1-0.png", "1-1.png"]
-                    ],
-                    duration: 0.5
-                  }
-                }
-              ]
-            },
-            {
-              components: [
-                {
-                  id: '5000',
-                  type: EMessageComponentType.BUTTON,
-                  component: { label: '5000', style: EButtonMessageStyle.SECONDARY },
-                },
-                {
-                  id: '10000',
-                  type: EMessageComponentType.BUTTON,
-                  component: { label: '10000', style: EButtonMessageStyle.PRIMARY },
-                },
-                {
-                  id: '20000',
-                  type: EMessageComponentType.BUTTON,
-                  component: { label: '20000', style: EButtonMessageStyle.SUCCESS },
-                },
-                {
-                  id: '50000',
-                  type: EMessageComponentType.BUTTON,
-                  component: { label: '50000', style: EButtonMessageStyle.DANGER },
-                }
-              ]
-            }
-          ]
-        }
-      }
+        },
+      },
     });
   }
 

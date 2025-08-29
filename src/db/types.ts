@@ -30,6 +30,7 @@ export type BaucuaGame = {
     updatedAt: Timestamp;
     startedAt: Timestamp | null;
     endedAt: Timestamp | null;
+    creatorId: string;
     totalBets: Generated<number>;
     totalAmount: Generated<number>;
 };

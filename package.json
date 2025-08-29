@@ -1,5 +1,5 @@
 {
-  "name": "hiroshima-bot-mezon",
+  "name": "bot-mezon",
   "version": "1.0.0",
   "description": "A Mezon SDK bot implementing a card game (21)",
   "main": "dist/index.js",
