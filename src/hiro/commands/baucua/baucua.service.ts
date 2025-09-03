@@ -47,6 +47,38 @@ export interface Bet {
   amount: number;
 }
 
+// utils trong baucua.service.ts hoặc tách file riêng cũng được
+function generateBauCuaPool(diceResults: DiceSymbol[]): string[][] {
+  const allSymbols: DiceSymbol[] = [
+    DiceSymbol.GOURD,
+    DiceSymbol.CRAB,
+    DiceSymbol.ROOSTER,
+    DiceSymbol.DEER,
+    DiceSymbol.SHRIMP,
+    DiceSymbol.FISH,
+  ];
+
+  function buildReel(finalSymbol: DiceSymbol): string[] {
+    const reel: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      const randomSym = allSymbols[Math.floor(Math.random() * allSymbols.length)];
+      reel.push(`${randomSym.toLowerCase()}.png`);
+    }
+    // ép kết quả cuối cùng
+    reel.push(`${finalSymbol.toLowerCase()}.png`);
+    return reel;
+  }
+
+  const pool = [
+    buildReel(diceResults[0]),
+    buildReel(diceResults[1]),
+    buildReel(diceResults[2]),
+  ];
+
+  console.log("🎰 Generated pool:", JSON.stringify(pool, null, 2));
+  return pool;
+}
+
 @Injectable()
 export class BaucuaService {
   private readonly logger = new Logger(BaucuaService.name);
@@ -296,6 +328,8 @@ export class BaucuaService {
       resultMessage += `Không có người thắng!\n`;
     }
 
+    const pool = generateBauCuaPool(diceResults);
+
     await this.mezon.sendMessage({
       type: 'channel',
       payload: {
@@ -317,25 +351,11 @@ export class BaucuaService {
                     id: "Slots",
                     type: EMessageComponentType.ANIMATION,
                     component: {
-                      url_image: "https://jaxx1911.github.io/GoldMiner/abcd.png",
-                      url_position: "https://jaxx1911.github.io/GoldMiner/abcd.json",
-                      pool: [
-                        [
-                          `1-${MappingPic[diceResults[0]]}.png`,
-                          `1-${MappingPic[diceResults[0]]}.png`,
-                          `1-${MappingPic[diceResults[0]]}.png`
-                        ],
-                        [
-                          `1-${MappingPic[diceResults[1]]}.png`,
-                          `1-${MappingPic[diceResults[1]]}.png`,
-                          `1-${MappingPic[diceResults[1]]}.png`
-                        ],
-                        [
-                          `1-${MappingPic[diceResults[2]]}.png`,
-                          `1-${MappingPic[diceResults[2]]}.png`,
-                          `1-${MappingPic[diceResults[2]]}.png`
-                        ]
-                      ]
+                      url_image: "http://localhost:3123/baucua/baucua.png",
+                      url_position: "http://localhost:3123/baucua/baucua.json",
+                      pool,
+                      repeat: 3,
+                      duration: 0.35,
                     }
                   }
                 ]
@@ -345,6 +365,7 @@ export class BaucuaService {
         }
       }
     });
+
 
     await this.mezon.updateMessage({
       channel_id: game.channelId,

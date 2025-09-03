@@ -10,6 +10,8 @@ import { MezonModule } from './mezon/mezon.module';
 import { BotModule } from './bot/bot.module';
 import { TopupModule } from './hiro/commands/topup/topup.module';
 import { BaucuaModule } from './hiro/commands/baucua/baucua.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 
 
 @Module({
@@ -26,6 +28,9 @@ import { BaucuaModule } from './hiro/commands/baucua/baucua.module';
     BotModule,
     TopupModule,
     BaucuaModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+    }),
   ],
   controllers: [AppController],
   providers: [AppService],
