@@ -34,20 +34,19 @@ export const BaucuaMappingName = {
 }
 
 export const MappingPic = {
-  "DEER": 0,
-  "GOURD": 1,
-  "ROOSTER": 2,
-  "FISH": 3,
-  "CRAB": 4,
-  "SHRIMP": 5,
+  "DEER": "1.png",
+  "GOURD": "2.png",
+  "ROOSTER": "3.png",
+  "FISH": "4.png",
+  "CRAB": "5.png",
+  "SHRIMP": "6.png",
+};
 
-}
 export interface Bet {
   symbol: DiceSymbol;
   amount: number;
 }
 
-// utils trong baucua.service.ts hoặc tách file riêng cũng được
 function generateBauCuaPool(diceResults: DiceSymbol[]): string[][] {
   const allSymbols: DiceSymbol[] = [
     DiceSymbol.GOURD,
@@ -62,21 +61,18 @@ function generateBauCuaPool(diceResults: DiceSymbol[]): string[][] {
     const reel: string[] = [];
     for (let i = 0; i < 12; i++) {
       const randomSym = allSymbols[Math.floor(Math.random() * allSymbols.length)];
-      reel.push(`${randomSym.toLowerCase()}.png`);
+      reel.push(MappingPic[randomSym]); // ví dụ "3.png"
     }
     // ép kết quả cuối cùng
-    reel.push(`${finalSymbol.toLowerCase()}.png`);
+    reel.push(MappingPic[finalSymbol]);
     return reel;
   }
 
-  const pool = [
+  return [
     buildReel(diceResults[0]),
     buildReel(diceResults[1]),
     buildReel(diceResults[2]),
   ];
-
-  console.log("🎰 Generated pool:", JSON.stringify(pool, null, 2));
-  return pool;
 }
 
 @Injectable()
@@ -154,7 +150,7 @@ export class BaucuaService {
         channelId: message.channel_id,
         messageId: response.message_id,
         status: GameStatus.WAITING,
-        startedAt: null, // ⚠️ chưa start
+        startedAt: null,
         creatorId: message.sender_id,
       },
     });
@@ -163,209 +159,45 @@ export class BaucuaService {
   private async rollDiceAndPayout(gameId: string) {
     const game = await this.prisma.baucuaGame.findUnique({
       where: { id: gameId },
-      include: {
-        bets: true,
-      },
+      include: { bets: true },
     });
 
     if (!game || game.status !== GameStatus.WAITING) return;
 
-    // Clear timeout
+    // Clear timeout nếu có
     const timeout = this.gameTimeouts.get(gameId);
     if (timeout) {
       clearTimeout(timeout);
       this.gameTimeouts.delete(gameId);
     }
 
-    // Check bot balance
-    const botBalance = await this.prisma.user_balance.findUnique({
-      where: { user_id: '1924288420973121536' },
-    });
+    // 🎲 Roll kết quả ngay lập tức
+    const diceResults = this.generateDiceResults();
 
-    let diceResults: DiceSymbol[];
-    if (botBalance && botBalance.balance < game.bets.reduce((sum, bet) => sum + bet.amount, 0)) {
-      // If bot balance is low, calculate result to ensure profit
-      const totalBets = game.bets.reduce((sum, bet) => sum + bet.amount, 0);
-      const betsBySymbol = new Map<DiceSymbol, number>();
-      betsBySymbol.set(DiceSymbol.FISH, 0);
-      betsBySymbol.set(DiceSymbol.SHRIMP, 0);
-      betsBySymbol.set(DiceSymbol.CRAB, 0);
-      betsBySymbol.set(DiceSymbol.GOURD, 0);
-      betsBySymbol.set(DiceSymbol.ROOSTER, 0);
-      betsBySymbol.set(DiceSymbol.DEER, 0);
-      // Calculate total bets per symbol
-      for (const bet of game.bets) {
-        betsBySymbol.set(bet.symbol, (betsBySymbol.get(bet.symbol) || 0) + bet.amount);
-      }
-
-      // Find symbol with lowest bet amount
-      let top3lowestBetSymbol: DiceSymbol[] = [];
-      for (const [symbol, amount] of betsBySymbol) {
-        top3lowestBetSymbol.push(symbol);
-      }
-      top3lowestBetSymbol.sort((a, b) => (betsBySymbol.get(a) || 0) - (betsBySymbol.get(b) || 0));
-      // Use symbol with lowest bet as result
-      console.log(top3lowestBetSymbol);
-      if (top3lowestBetSymbol.length > 0) {
-        const dice1 = Math.floor(Math.random() * 3);
-        const dice2 = Math.floor(Math.random() * 3);
-        const dice3 = Math.floor(Math.random() * 3);
-        diceResults = [top3lowestBetSymbol[dice1], top3lowestBetSymbol[dice2], top3lowestBetSymbol[dice3]];
-      } else {
-        diceResults = this.generateDiceResults();
-      }
-    } else {
-      // Normal dice roll
-      diceResults = this.generateDiceResults();
-    }
-
-    const symbolCount = new Map<DiceSymbol, number>();
-    for (const symbol of diceResults) {
-      symbolCount.set(symbol, (symbolCount.get(symbol) || 0) + 1);
-    }
-
-    // Save dice results
+    // Lưu vào DB
     for (let i = 0; i < diceResults.length; i++) {
       await this.prisma.baucuaDiceResult.create({
-        data: {
-          gameId,
-          symbol: diceResults[i],
-          position: i + 1,
-        },
+        data: { gameId, symbol: diceResults[i], position: i + 1 },
       });
     }
 
-    // Calculate winnings
+    // Tính thắng thua trước (để sau show luôn)
+    const symbolCount = new Map<DiceSymbol, number>();
+    for (const s of diceResults) {
+      symbolCount.set(s, (symbolCount.get(s) || 0) + 1);
+    }
+
     const winnings = new Map<string, number>();
     for (const bet of game.bets) {
       const count = symbolCount.get(bet.symbol) || 0;
       if (count > 0) {
-        // Win amount = bet amount + (bet amount * occurrences)
-        const winAmount = bet.amount + (bet.amount * count);
+        const winAmount = bet.amount + bet.amount * count;
         winnings.set(bet.userId, (winnings.get(bet.userId) || 0) + winAmount);
       }
     }
 
-    // Update player balances and stats
-    for (const [userId, amount] of winnings) {
-      // Update balance
-      await this.prisma.user_balance.update({
-        where: { user_id: userId },
-        data: { balance: { increment: amount } },
-      });
-
-      // Create winner record
-      await this.prisma.baucuaWinner.create({
-        data: {
-          gameId,
-          userId,
-          amount,
-        },
-      });
-
-      // Update player stats
-      await this.prisma.baucuaPlayerStats.upsert({
-        where: { userId },
-        create: {
-          userId,
-          totalGames: 1,
-          totalBets: 1,
-          totalWins: 1,
-          totalWinnings: amount,
-        },
-        update: {
-          totalGames: { increment: 1 },
-          totalBets: { increment: 1 },
-          totalWins: { increment: 1 },
-          totalWinnings: { increment: amount },
-        },
-      });
-    }
-
-    // Calculate total bets and winnings
-    const totalBets = game.bets.reduce((sum, bet) => sum + bet.amount, 0);
-    const totalWinnings = Array.from(winnings.values()).reduce((sum, amount) => sum + amount, 0);
-    const botProfit = totalBets - totalWinnings;
-
-    // Update bot balance with profit
-    if (botProfit > 0) {
-      await this.prisma.user_balance.update({
-        where: { user_id: '1924288420973121536' },
-        data: { balance: { increment: botProfit } },
-      });
-    } else {
-      await this.prisma.user_balance.update({
-        where: { user_id: '1924288420973121536' },
-        data: { balance: { decrement: Math.abs(botProfit) } },
-      });
-    }
-
-    // Update game status
-    await this.prisma.baucuaGame.update({
-      where: { id: gameId },
-      data: {
-        status: GameStatus.FINISHED,
-        endedAt: new Date(),
-      },
-    });
-
-    // Send results message
-    let resultMessage = ``;
-    resultMessage += `Xúc xắc: ${diceResults.map(s => this.getSymbolEmoji(s)).join(' ')}\n\n`;
-
-    if (winnings.size > 0) {
-      resultMessage += `Người thắng:\n`;
-      for (const [userId, amount] of winnings) {
-        const user = await this.prisma.user_balance.findUnique({
-          where: {
-            user_id: userId,
-          },
-        });
-        if (!user) continue;
-        resultMessage += `${user.username}: +${amount} đ\n`;
-      }
-    } else {
-      resultMessage += `Không có người thắng!\n`;
-    }
-
+    // 🎰 Gửi update: cho quay random (pool giả)
     const pool = generateBauCuaPool(diceResults);
-
-    await this.mezon.sendMessage({
-      type: 'channel',
-      payload: {
-        channel_id: game.channelId,
-        message: {
-          type: 'optional',
-          content: {
-            embed: [
-              {
-                color: "#BCC0C0",
-                title: '🎲 KẾT QUẢ BẦU CUA 🎲',
-                description: resultMessage
-              }
-            ],
-            components: [
-              {
-                components: [
-                  {
-                    id: "Slots",
-                    type: EMessageComponentType.ANIMATION,
-                    component: {
-                      url_image: "http://localhost:3123/baucua/baucua.png",
-                      url_position: "http://localhost:3123/baucua/baucua.json",
-                      pool,
-                      repeat: 3,
-                      duration: 0.35,
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      }
-    });
-
 
     await this.mezon.updateMessage({
       channel_id: game.channelId,
@@ -376,14 +208,96 @@ export class BaucuaService {
           embed: [
             {
               color: "#BCC0C0",
-              title: '🎲 KẾT QUẢ BẦU CUA 🎲',
-              description: 'Game đã kết thúc! \n\n' + resultMessage,
+              title: '🎲 BẦU CUA ĐANG QUAY 🎲',
+              description: 'Đang quay kết quả...',
+              fields: [
+                {
+                  name: '',
+                  value: '',
+                  inputs: {
+                    id: `baucua`,
+                    type: EMessageComponentType.ANIMATION,
+                    component: {
+                      url_image: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1924288420973121500/1756958211609_1baucua.png",
+                      url_position: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757138049982_baucua.json",
+                      pool,
+                      repeat: 15,
+                      duration: 0.4,
+                    },
+                  },
+                },
+              ] as any,
             },
           ],
         },
       },
     });
+
+    // Sau 5s update thành kết quả thật
+    setTimeout(async () => {
+      let resultMessage = `Xúc xắc: ${diceResults.map(s => this.getSymbolEmoji(s)).join(' ')}\n\n`;
+      if (winnings.size > 0) {
+        resultMessage += `Người thắng:\n`;
+        for (const [userId, amount] of winnings) {
+          const user = await this.prisma.user_balance.findUnique({ where: { user_id: userId } });
+          if (user) resultMessage += `${user.username}: +${amount} đ\n`;
+        }
+      } else {
+        resultMessage += `Không có người thắng!\n`;
+      }
+
+      const finalPool = generateBauCuaPool(diceResults);
+
+      await this.mezon.updateMessage({
+        channel_id: game.channelId,
+        message_id: game.messageId,
+        content: {
+          type: 'optional',
+          content: {
+            embed: [
+              {
+                color: "#BCC0C0",
+                title: '🎲 KẾT QUẢ BẦU CUA 🎲',
+                description: 'Game đã kết thúc!\n\n' + resultMessage,
+                fields: [
+                  {
+                    name: '',
+                    value: '',
+                    inputs: {
+                      id: `baucua`,
+                      type: EMessageComponentType.ANIMATION,
+                      component: {
+                        url_image: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1924288420973121500/1756958211609_1baucua.png",
+                        url_position: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757138049982_baucua.json",
+                        pool: finalPool,
+                        repeat: 15,
+                        duration: 0.4,
+                      },
+                    },
+                  },
+                ] as any,
+              },
+            ],
+          },
+        },
+      });
+
+      // 👉 Sau khi update kết quả thì mới update DB (winner, balance, game finished)
+      for (const [userId, amount] of winnings) {
+        await this.prisma.user_balance.update({
+          where: { user_id: userId },
+          data: { balance: { increment: amount } },
+        });
+      }
+
+      await this.prisma.baucuaGame.update({
+        where: { id: gameId },
+        data: { status: GameStatus.FINISHED, endedAt: new Date() },
+      });
+
+    }, 5000);
   }
+
 
 
   private generateDiceResults(): DiceSymbol[] {
@@ -562,10 +476,33 @@ export class BaucuaService {
         data: { startedAt: new Date() },
       });
 
-      const timeout = setTimeout(() => this.rollDiceAndPayout(game.id), 15000);
+      // Gửi thông báo đếm ngược 5s
+      for (let i = 5; i > 0; i--) {
+        setTimeout(async () => {
+          await this.mezon.updateMessage({
+            channel_id: game.channelId,
+            message_id: game.messageId,
+            content: {
+              type: 'optional',
+              content: {
+                embed: [
+                  {
+                    color: "#BCC0C0",
+                    title: '🎲 BẦU CUA BẮT ĐẦU 🎲',
+                    description: `⏳ Còn ${i} giây để quay...`,
+                  },
+                ],
+              },
+            },
+          });
+        }, (5 - i) * 1000);
+      }
+
+      // Sau 5s thì gọi quay
+      const timeout = setTimeout(() => this.rollDiceAndPayout(game.id), 5000);
       this.gameTimeouts.set(game.id, timeout);
 
-      this.logger.log(`⏳ Game ${game.id} bắt đầu đếm ngược từ khi user đặt cược đầu tiên`);
+      this.logger.log(`⏳ Game ${game.id} bắt đầu đếm ngược 5s`);
     }
 
     await this.prisma.user_balance.update({
@@ -575,23 +512,6 @@ export class BaucuaService {
 
     const noti = `Người chơi ${userBalance.username} đã đặt cược: ${BaucuaMappingName[parseInt(value)]} ${parseInt(button_id)}`;
     this.logger.log(`💰 ${noti}`);
-
-    await this.mezon.updateMessage({
-      channel_id,
-      message_id: game.messageId,
-      content: {
-        type: 'optional',
-        content: {
-          embed: [
-            {
-              color: "#BCC0C0",
-              title: '🎲 BẦU CUA TÔM CÁ 🎲\n\t',
-              description: noti,
-            },
-          ],
-        },
-      },
-    });
   }
 
   async handleEndGame(gameId: string) {

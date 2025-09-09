@@ -3,6 +3,25 @@ export const ETransactionType = {
     WITHDRAW: "WITHDRAW"
 } as const;
 export type ETransactionType = (typeof ETransactionType)[keyof typeof ETransactionType];
+export const EBlackjackGameStatus = {
+    PLAYING: "PLAYING",
+    ENDED: "ENDED"
+} as const;
+export type EBlackjackGameStatus = (typeof EBlackjackGameStatus)[keyof typeof EBlackjackGameStatus];
+export const EBlackjackCardSuit = {
+    SPADES: "SPADES",
+    HEARTS: "HEARTS",
+    DIAMONDS: "DIAMONDS",
+    CLUBS: "CLUBS"
+} as const;
+export type EBlackjackCardSuit = (typeof EBlackjackCardSuit)[keyof typeof EBlackjackCardSuit];
+export const EBlackjackPlayerStatus = {
+    PLAYING: "PLAYING",
+    STAND: "STAND",
+    BUST: "BUST",
+    BLACKJACK: "BLACKJACK"
+} as const;
+export type EBlackjackPlayerStatus = (typeof EBlackjackPlayerStatus)[keyof typeof EBlackjackPlayerStatus];
 export const GameStatus = {
     WAITING: "WAITING",
     BETTING: "BETTING",
