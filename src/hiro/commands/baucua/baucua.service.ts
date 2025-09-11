@@ -1,45 +1,49 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ChannelMessage, EButtonMessageStyle, EMessageComponentType } from 'mezon-sdk';
-import { MezonService } from '../../../mezon/mezon.service';
-import { MessageButtonClickedEvent } from '../topup/types';
-import { PrismaService } from '../../../prisma/prisma.service';
-import { GameStatus } from '../../../db/enums';
-import { DiceSymbol } from '@prisma/client';
-import { BauCuaSelect } from '../../../common/component/BauCuaSelect';
+import { Injectable, Logger } from "@nestjs/common";
+import {
+  ChannelMessage,
+  EButtonMessageStyle,
+  EMessageComponentType,
+} from "mezon-sdk";
+import { MezonService } from "../../../mezon/mezon.service";
+import { MessageButtonClickedEvent } from "../topup/types";
+import { PrismaService } from "../../../prisma/prisma.service";
+import { GameStatus } from "../../../db/enums";
+import { DiceSymbol } from "@prisma/client";
+import { BauCuaSelect } from "../../../common/component/BauCuaSelect";
 
 export const BaucuaMappingChoice = {
-  6: "FISH",
-  5: "SHRIMP",
-  2: "CRAB",
-  1: "GOURD",
-  3: "ROOSTER",
-  4: "DEER",
-}
+  6: "FISH", //cá
+  5: "SHRIMP", //tôm
+  2: "CRAB", //cua
+  1: "GOURD", //bầu
+  3: "ROOSTER", //gà
+  4: "DEER", //nai
+};
 
 export const BaucuaMappingChoiceReverse = {
-  "FISH": 6,
-  "SHRIMP": 5,
-  "CRAB": 2,
-  "GOURD": 1,
-  "ROOSTER": 3,
-  "DEER": 4,
-}
+  FISH: 6, //cá
+  SHRIMP: 5, //tôm
+  CRAB: 2, //cua
+  GOURD: 1, //bầu
+  ROOSTER: 3, //gà
+  DEER: 4, //nai
+};
 export const BaucuaMappingName = {
-  1: "Bầu",
-  2: "Cua",
-  3: "Gà",
-  4: "Nai",
-  5: "Tôm",
-  6: "Cá",
-}
+  1: "Bầu", // Gourd
+  2: "Cua", // Crab
+  3: "Gà", // Rooster
+  4: "Nai", // Deer
+  5: "Tôm", // Shrimp
+  6: "Cá", // Fish
+};
 
 export const MappingPic = {
-  "DEER": "1.png",
-  "GOURD": "2.png",
-  "ROOSTER": "3.png",
-  "FISH": "4.png",
-  "CRAB": "5.png",
-  "SHRIMP": "6.png",
+  DEER: "1.png",
+  GOURD: "3.png",
+  ROOSTER: "2.png",
+  FISH: "4.png",
+  CRAB: "5.png",
+  SHRIMP: "6.png",
 };
 
 export interface Bet {
@@ -60,7 +64,8 @@ function generateBauCuaPool(diceResults: DiceSymbol[]): string[][] {
   function buildReel(finalSymbol: DiceSymbol): string[] {
     const reel: string[] = [];
     for (let i = 0; i < 12; i++) {
-      const randomSym = allSymbols[Math.floor(Math.random() * allSymbols.length)];
+      const randomSym =
+        allSymbols[Math.floor(Math.random() * allSymbols.length)];
       reel.push(MappingPic[randomSym]); // ví dụ "3.png"
     }
     // ép kết quả cuối cùng
@@ -78,16 +83,19 @@ function generateBauCuaPool(diceResults: DiceSymbol[]): string[][] {
 @Injectable()
 export class BaucuaService {
   private readonly logger = new Logger(BaucuaService.name);
-  private activeGames: Map<string, {
-    bets: Map<string, Bet[]>;
-    messageId: string;
-  }> = new Map();
+  private activeGames: Map<
+    string,
+    {
+      bets: Map<string, Bet[]>;
+      messageId: string;
+    }
+  > = new Map();
   private gameTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(
     private readonly mezon: MezonService,
-    private readonly prisma: PrismaService,
-  ) { }
+    private readonly prisma: PrismaService
+  ) {}
 
   async createBaucua(message: ChannelMessage) {
     const gameId = `${message.channel_id}_${Date.now()}`;
@@ -102,12 +110,12 @@ export class BaucuaService {
 
     if (existingGame) {
       await this.mezon.sendMessage({
-        type: 'channel',
+        type: "channel",
         payload: {
           channel_id: message.channel_id,
           message: {
-            type: 'system',
-            content: 'Ván cược đã được tạo!',
+            type: "system",
+            content: "Ván cược đã được tạo!",
           },
         },
       });
@@ -115,29 +123,57 @@ export class BaucuaService {
     }
 
     const response = await this.mezon.sendMessage({
-      type: 'channel',
+      type: "channel",
       payload: {
         channel_id: message.channel_id,
         message: {
-          type: 'optional',
+          type: "optional",
           content: {
             embed: [
               {
                 color: "#BCC0C0",
-                title: '🎲 BẦU CUA TÔM CÁ 🎲',
-                description: 'Chọn cửa cược và số tiền để tham gia',
+                title: "🎲 BẦU CUA TÔM CÁ 🎲",
+                description: "Chọn cửa cược và số tiền để tham gia",
               },
             ],
             components: [
               { components: [BauCuaSelect] },
               {
                 components: [
-                  { id: '5000', type: EMessageComponentType.BUTTON, component: { label: '5000', style: EButtonMessageStyle.SECONDARY } },
-                  { id: '10000', type: EMessageComponentType.BUTTON, component: { label: '10000', style: EButtonMessageStyle.PRIMARY } },
-                  { id: '20000', type: EMessageComponentType.BUTTON, component: { label: '20000', style: EButtonMessageStyle.SUCCESS } },
-                  { id: '50000', type: EMessageComponentType.BUTTON, component: { label: '50000', style: EButtonMessageStyle.DANGER } },
-                ]
-              }
+                  {
+                    id: "5000",
+                    type: EMessageComponentType.BUTTON,
+                    component: {
+                      label: "5000",
+                      style: EButtonMessageStyle.SECONDARY,
+                    },
+                  },
+                  {
+                    id: "10000",
+                    type: EMessageComponentType.BUTTON,
+                    component: {
+                      label: "10000",
+                      style: EButtonMessageStyle.PRIMARY,
+                    },
+                  },
+                  {
+                    id: "20000",
+                    type: EMessageComponentType.BUTTON,
+                    component: {
+                      label: "20000",
+                      style: EButtonMessageStyle.SUCCESS,
+                    },
+                  },
+                  {
+                    id: "50000",
+                    type: EMessageComponentType.BUTTON,
+                    component: {
+                      label: "50000",
+                      style: EButtonMessageStyle.DANGER,
+                    },
+                  },
+                ],
+              },
             ],
           },
         },
@@ -203,23 +239,25 @@ export class BaucuaService {
       channel_id: game.channelId,
       message_id: game.messageId,
       content: {
-        type: 'optional',
+        type: "optional",
         content: {
           embed: [
             {
               color: "#BCC0C0",
-              title: '🎲 BẦU CUA ĐANG QUAY 🎲',
-              description: 'Đang quay kết quả...',
+              title: "🎲 BẦU CUA ĐANG QUAY 🎲",
+              description: "Đang quay kết quả...",
               fields: [
                 {
-                  name: '',
-                  value: '',
+                  name: "",
+                  value: "",
                   inputs: {
                     id: `baucua`,
                     type: EMessageComponentType.ANIMATION,
                     component: {
-                      url_image: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1924288420973121500/1756958211609_1baucua.png",
-                      url_position: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757138049982_baucua.json",
+                      url_image:
+                        "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1783440675396653000/1757515585389_baucua.png",
+                      url_position:
+                        "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757515675145_1757138049982_baucua.json",
                       pool,
                       repeat: 15,
                       duration: 0.4,
@@ -235,11 +273,15 @@ export class BaucuaService {
 
     // Sau 5s update thành kết quả thật
     setTimeout(async () => {
-      let resultMessage = `Xúc xắc: ${diceResults.map(s => this.getSymbolEmoji(s)).join(' ')}\n\n`;
+      let resultMessage = `Xúc xắc: ${diceResults
+        .map((s) => this.getSymbolEmoji(s))
+        .join(" ")}\n\n`;
       if (winnings.size > 0) {
         resultMessage += `Người thắng:\n`;
         for (const [userId, amount] of winnings) {
-          const user = await this.prisma.user_balance.findUnique({ where: { user_id: userId } });
+          const user = await this.prisma.user_balance.findUnique({
+            where: { user_id: userId },
+          });
           if (user) resultMessage += `${user.username}: +${amount} đ\n`;
         }
       } else {
@@ -252,26 +294,28 @@ export class BaucuaService {
         channel_id: game.channelId,
         message_id: game.messageId,
         content: {
-          type: 'optional',
+          type: "optional",
           content: {
             embed: [
               {
                 color: "#BCC0C0",
-                title: '🎲 KẾT QUẢ BẦU CUA 🎲',
-                description: 'Game đã kết thúc!\n\n' + resultMessage,
+                title: "🎲 KẾT QUẢ BẦU CUA 🎲",
+                description: "Game đã kết thúc!\n\n" + resultMessage,
                 fields: [
                   {
-                    name: '',
-                    value: '',
+                    name: "",
+                    value: "",
                     inputs: {
                       id: `baucua`,
                       type: EMessageComponentType.ANIMATION,
                       component: {
-                        url_image: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1924288420973121500/1756958211609_1baucua.png",
-                        url_position: "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757138049982_baucua.json",
+                        url_image:
+                          "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1783440675396653000/1757515585389_baucua.png",
+                        url_position:
+                          "https://cdn.mezon.ai/1840702095641022464/1840702095661993984/1840674320150433800/1757515675145_1757138049982_baucua.json",
                         pool: finalPool,
-                        repeat: 15,
-                        duration: 0.4,
+                        repeat: 1,
+                        duration: 0,
                       },
                     },
                   },
@@ -294,11 +338,8 @@ export class BaucuaService {
         where: { id: gameId },
         data: { status: GameStatus.FINISHED, endedAt: new Date() },
       });
-
     }, 5000);
   }
-
-
 
   private generateDiceResults(): DiceSymbol[] {
     const symbols = Object.values(DiceSymbol);
@@ -312,12 +353,12 @@ export class BaucuaService {
 
   private getSymbolEmoji(symbol: DiceSymbol): string {
     const emojiMap: Record<DiceSymbol, string> = {
-      [DiceSymbol.FISH]: '🐟',
-      [DiceSymbol.SHRIMP]: '🦐',
-      [DiceSymbol.CRAB]: '🦀',
-      [DiceSymbol.GOURD]: '🎃',
-      [DiceSymbol.ROOSTER]: '🐔',
-      [DiceSymbol.DEER]: '🦌',
+      [DiceSymbol.FISH]: "🐟",
+      [DiceSymbol.SHRIMP]: "🦐",
+      [DiceSymbol.CRAB]: "🦀",
+      [DiceSymbol.GOURD]: "🎃",
+      [DiceSymbol.ROOSTER]: "🐔",
+      [DiceSymbol.DEER]: "🦌",
     };
     return emojiMap[symbol];
   }
@@ -332,12 +373,12 @@ export class BaucuaService {
         status: GameStatus.WAITING,
         endedAt: null,
       },
-      orderBy: { startedAt: 'desc' },
+      orderBy: { startedAt: "desc" },
     });
 
     if (!game) {
       this.logger.warn(
-        `⚠️ Không tìm thấy ván đang chờ trong channel ${channelId}, user ${userId} chọn cửa bị bỏ qua`,
+        `⚠️ Không tìm thấy ván đang chờ trong channel ${channelId}, user ${userId} chọn cửa bị bỏ qua`
       );
       return;
     }
@@ -345,7 +386,7 @@ export class BaucuaService {
     // Nếu user không phải creator thì chặn
     if (game.creatorId !== userId) {
       this.logger.warn(
-        `❌ User ${userId} cố chọn cửa nhưng không phải chủ game (creator=${game.creatorId})`,
+        `❌ User ${userId} cố chọn cửa nhưng không phải chủ game (creator=${game.creatorId})`
       );
       return;
     }
@@ -353,7 +394,9 @@ export class BaucuaService {
     // Reset state cũ của user trong channel (nếu có)
     const key = `${userId}_${channelId}`;
     if (this.userChoices.has(key)) {
-      this.logger.debug(`♻️ Reset userChoices[${key}] từ ${this.userChoices.get(key)}`);
+      this.logger.debug(
+        `♻️ Reset userChoices[${key}] từ ${this.userChoices.get(key)}`
+      );
       this.userChoices.delete(key);
     }
 
@@ -361,29 +404,30 @@ export class BaucuaService {
     this.userChoices.set(key, value);
 
     this.logger.log(
-      `✅ SET userChoices[${key}] = ${value} (${BaucuaMappingName[parseInt(value)]})`,
+      `✅ SET userChoices[${key}] = ${value} (${
+        BaucuaMappingName[parseInt(value)]
+      })`
     );
 
     // Gửi xác nhận về channel
     await this.mezon.sendMessage({
-      type: 'channel',
+      type: "channel",
       payload: {
         channel_id: channelId,
         message: {
-          type: 'system',
+          type: "system",
           content: `👉 Bạn đã chọn cửa: ${BaucuaMappingName[parseInt(value)]}`,
         },
       },
     });
   }
 
-
   async handleButtonClicked(data: MessageButtonClickedEvent) {
-    if (data.button_id === 'BauCuaSelect') {
+    if (data.button_id === "BauCuaSelect") {
       this.logger.debug(
         `⏩ Bỏ qua event chọn cửa trong handleButtonClicked: ${JSON.stringify(
-          data,
-        )}`,
+          data
+        )}`
       );
       return;
     }
@@ -392,7 +436,7 @@ export class BaucuaService {
     const key = `${user_id}_${channel_id}`;
 
     this.logger.debug(
-      `📥 Nhận click tiền: user=${user_id}, channel=${channel_id}, money=${button_id}`,
+      `📥 Nhận click tiền: user=${user_id}, channel=${channel_id}, money=${button_id}`
     );
 
     const userBalance = await this.prisma.user_balance.findUnique({
@@ -402,14 +446,14 @@ export class BaucuaService {
 
     if (userBalance.balance < parseInt(button_id)) {
       this.logger.warn(
-        `❌ User ${user_id} (${userBalance.username}) không đủ tiền (${userBalance.balance}) để đặt ${button_id}`,
+        `❌ User ${user_id} (${userBalance.username}) không đủ tiền (${userBalance.balance}) để đặt ${button_id}`
       );
       await this.mezon.sendMessage({
-        type: 'channel',
+        type: "channel",
         payload: {
           channel_id,
           message: {
-            type: 'system',
+            type: "system",
             content: `❌ Bạn ${userBalance.username} không có đủ tiền để đặt cược!`,
           },
         },
@@ -424,11 +468,11 @@ export class BaucuaService {
     if (!value) {
       this.logger.warn(`⚠️ User ${user_id} chưa chọn cửa nhưng lại bấm tiền`);
       await this.mezon.sendMessage({
-        type: 'channel',
+        type: "channel",
         payload: {
           channel_id,
           message: {
-            type: 'system',
+            type: "system",
             content: `⚠️ Bạn cần chọn cửa (Bầu, Cua, Gà...) trước khi bấm số tiền!`,
           },
         },
@@ -446,13 +490,15 @@ export class BaucuaService {
     if (!game) return;
 
     if (game.creatorId !== user_id) {
-      this.logger.warn(`❌ User ${user_id} không phải creator (${game.creatorId})`);
+      this.logger.warn(
+        `❌ User ${user_id} không phải creator (${game.creatorId})`
+      );
       await this.mezon.sendMessage({
-        type: 'channel',
+        type: "channel",
         payload: {
           channel_id,
           message: {
-            type: 'system',
+            type: "system",
             content: `⚠️ Chỉ người tạo ván (${game.creatorId}) mới được tham gia chơi!`,
           },
         },
@@ -483,12 +529,12 @@ export class BaucuaService {
             channel_id: game.channelId,
             message_id: game.messageId,
             content: {
-              type: 'optional',
+              type: "optional",
               content: {
                 embed: [
                   {
                     color: "#BCC0C0",
-                    title: '🎲 BẦU CUA BẮT ĐẦU 🎲',
+                    title: "🎲 BẦU CUA BẮT ĐẦU 🎲",
                     description: `⏳ Còn ${i} giây để quay...`,
                   },
                 ],
@@ -510,7 +556,9 @@ export class BaucuaService {
       data: { balance: userBalance.balance - parseInt(button_id) },
     });
 
-    const noti = `Người chơi ${userBalance.username} đã đặt cược: ${BaucuaMappingName[parseInt(value)]} ${parseInt(button_id)}`;
+    const noti = `Người chơi ${userBalance.username} đã đặt cược: ${
+      BaucuaMappingName[parseInt(value)]
+    } ${parseInt(button_id)}`;
     this.logger.log(`💰 ${noti}`);
   }
 
@@ -538,7 +586,10 @@ export class BaucuaService {
     for (const bet of bets) {
       const userId = bet.userId;
       const userBets = betsMap.get(userId) || [];
-      userBets.push({ symbol: bet.symbol as unknown as DiceSymbol, amount: bet.amount });
+      userBets.push({
+        symbol: bet.symbol as unknown as DiceSymbol,
+        amount: bet.amount,
+      });
       betsMap.set(userId, userBets);
     }
 
@@ -547,7 +598,7 @@ export class BaucuaService {
     for (const [userId, userBets] of betsMap.entries()) {
       let totalWin = 0;
       for (const bet of userBets) {
-        const count = diceResult.filter(s => s === bet.symbol).length;
+        const count = diceResult.filter((s) => s === bet.symbol).length;
         if (count > 0) {
           totalWin += bet.amount * count;
         }
@@ -573,16 +624,16 @@ export class BaucuaService {
         },
       });
     }
-    let content = `Kết quả: ${diceResult.join(', ')} \n\n`;
+    let content = `Kết quả: ${diceResult.join(", ")} \n\n`;
     for (const [userId, userWinnings] of winnings.entries()) {
       content += `${userId}: ${userWinnings}\n`;
     }
     await this.mezon.sendMessage({
-      type: 'channel',
+      type: "channel",
       payload: {
         channel_id: game.channelId,
         message: {
-          type: 'system',
+          type: "system",
           content: content,
         },
       },
@@ -612,24 +663,48 @@ export class BaucuaService {
     for (const bet of bets) {
       const userId = bet.userId;
       const userBets = betsMap.get(userId) || [];
-      userBets.push({ symbol: bet.symbol as unknown as DiceSymbol, amount: bet.amount });
+      userBets.push({
+        symbol: bet.symbol as unknown as DiceSymbol,
+        amount: bet.amount,
+      });
       betsMap.set(userId, userBets);
     }
-    const content = `Kết quả đặt cược: \n` +
-      `Bầu 🎃 : ${bets.filter(b => b.symbol === DiceSymbol.GOURD).reduce((acc, b) => acc + b.amount, 0)}\n` +
-      `Cua 🦀 : ${bets.filter(b => b.symbol === DiceSymbol.CRAB).reduce((acc, b) => acc + b.amount, 0)}\n` +
-      `Gà 🐔 : ${bets.filter(b => b.symbol === DiceSymbol.ROOSTER).reduce((acc, b) => acc + b.amount, 0)}\n` +
-      `Nai 🦌 : ${bets.filter(b => b.symbol === DiceSymbol.DEER).reduce((acc, b) => acc + b.amount, 0)}\n` +
-      `Tôm 🦐 : ${bets.filter(b => b.symbol === DiceSymbol.SHRIMP).reduce((acc, b) => acc + b.amount, 0)}\n` +
-      `Cá 🐟 : ${bets.filter(b => b.symbol === DiceSymbol.FISH).reduce((acc, b) => acc + b.amount, 0)}\n` +
+    const content =
+      `Kết quả đặt cược: \n` +
+      `Bầu 🎃 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.GOURD)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
+      `Cua 🦀 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.CRAB)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
+      `Gà 🐔 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.ROOSTER)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
+      `Nai 🦌 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.DEER)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
+      `Tôm 🦐 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.SHRIMP)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
+      `Cá 🐟 : ${bets
+        .filter((b) => b.symbol === DiceSymbol.FISH)
+        .reduce((acc, b) => acc + b.amount, 0)}\n` +
       `-----------------------------------\n` +
-      `Người chơi ${user.username} đã đặt cược: \n${bets.filter(b => b.userId === user.user_id).map(b => `${BaucuaMappingName[BaucuaMappingChoiceReverse[b.symbol]]} ${b.amount}`).join('\n')}`;
+      `Người chơi ${user.username} đã đặt cược: \n${bets
+        .filter((b) => b.userId === user.user_id)
+        .map(
+          (b) =>
+            `${BaucuaMappingName[BaucuaMappingChoiceReverse[b.symbol]]} ${
+              b.amount
+            }`
+        )
+        .join("\n")}`;
     this.mezon.sendMessage({
-      type: 'channel',
+      type: "channel",
       payload: {
         channel_id: data.channel_id,
         message: {
-          type: 'system',
+          type: "system",
           content: content,
         },
       },
@@ -643,9 +718,9 @@ export class BaucuaService {
         channelId: data.channel_id,
         status: GameStatus.FINISHED,
         endedAt: {
-          not: null
-        }
-      }
+          not: null,
+        },
+      },
     });
 
     const game = await this.prisma.baucuaGame.findMany({
@@ -653,11 +728,11 @@ export class BaucuaService {
         channelId: data.channel_id,
         status: GameStatus.FINISHED,
         endedAt: {
-          not: null
-        }
+          not: null,
+        },
       },
       orderBy: {
-        endedAt: 'desc',
+        endedAt: "desc",
       },
       take: 5,
     });
@@ -665,11 +740,11 @@ export class BaucuaService {
     const result = await this.prisma.baucuaDiceResult.findMany({
       where: {
         gameId: {
-          in: game.map(g => g.id),
+          in: game.map((g) => g.id),
         },
       },
       orderBy: {
-        position: 'asc',
+        position: "asc",
       },
     });
 
@@ -679,26 +754,33 @@ export class BaucuaService {
       const currentGame = game[i];
       if (!currentGame.endedAt) continue;
 
-      const gameResults = result.filter(r => r.gameId === currentGame.id);
+      const gameResults = result.filter((r) => r.gameId === currentGame.id);
 
       content += `Ván ${totalGames - i}:\n`;
-      content += `Kết quả: ${gameResults.map(r =>
-        `${BaucuaMappingName[BaucuaMappingChoiceReverse[r.symbol]]} ${this.getSymbolEmoji(r.symbol)}`
-      ).join(' | ')}\n`;
-      content += `Thời gian: ${currentGame.endedAt.toLocaleString('vi-VN')}\n\n`;
+      content += `Kết quả: ${gameResults
+        .map(
+          (r) =>
+            `${
+              BaucuaMappingName[BaucuaMappingChoiceReverse[r.symbol]]
+            } ${this.getSymbolEmoji(r.symbol)}`
+        )
+        .join(" | ")}\n`;
+      content += `Thời gian: ${currentGame.endedAt.toLocaleString(
+        "vi-VN"
+      )}\n\n`;
     }
 
     await this.mezon.sendMessage({
-      type: 'channel',
+      type: "channel",
       payload: {
         channel_id: data.channel_id,
         message: {
-          type: 'optional',
+          type: "optional",
           content: {
             embed: [
               {
                 color: "#BCC0C0",
-                title: '📜 LỊCH SỬ 5 VÁN CƯỢC GẦN NHẤT 📜',
+                title: "📜 LỊCH SỬ 5 VÁN CƯỢC GẦN NHẤT 📜",
                 description: content,
               },
             ],
