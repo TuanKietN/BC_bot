@@ -132,45 +132,35 @@ export class BaucuaService {
             embed: [
               {
                 color: "#BCC0C0",
-                title: "🎲 BẦU CUA TÔM CÁ 🎲",
+                title: " BẦU CUA TÔM CÁ ",
                 description: "Chọn cửa cược và số tiền để tham gia",
               },
             ],
             components: [
-              { components: [BauCuaSelect] },
+              {
+                components: [BauCuaSelect],
+              },
               {
                 components: [
                   {
                     id: "5000",
                     type: EMessageComponentType.BUTTON,
-                    component: {
-                      label: "5000",
-                      style: EButtonMessageStyle.SECONDARY,
-                    },
+                    component: { label: "5000", style: EButtonMessageStyle.SECONDARY },
                   },
                   {
                     id: "10000",
                     type: EMessageComponentType.BUTTON,
-                    component: {
-                      label: "10000",
-                      style: EButtonMessageStyle.PRIMARY,
-                    },
+                    component: { label: "10000", style: EButtonMessageStyle.PRIMARY },
                   },
                   {
                     id: "20000",
                     type: EMessageComponentType.BUTTON,
-                    component: {
-                      label: "20000",
-                      style: EButtonMessageStyle.SUCCESS,
-                    },
+                    component: { label: "20000", style: EButtonMessageStyle.SUCCESS },
                   },
                   {
                     id: "50000",
                     type: EMessageComponentType.BUTTON,
-                    component: {
-                      label: "50000",
-                      style: EButtonMessageStyle.DANGER,
-                    },
+                    component: { label: "50000", style: EButtonMessageStyle.DANGER },
                   },
                 ],
               },
@@ -207,7 +197,7 @@ export class BaucuaService {
       this.gameTimeouts.delete(gameId);
     }
 
-    // 🎲 Roll kết quả ngay lập tức
+    //  Roll kết quả ngay lập tức
     const diceResults = this.generateDiceResults();
 
     // Lưu vào DB
@@ -244,7 +234,7 @@ export class BaucuaService {
           embed: [
             {
               color: "#BCC0C0",
-              title: "🎲 BẦU CUA ĐANG QUAY 🎲",
+              title: " BẦU CUA ĐANG QUAY ",
               description: "Đang quay kết quả...",
               fields: [
                 {
@@ -299,7 +289,7 @@ export class BaucuaService {
             embed: [
               {
                 color: "#BCC0C0",
-                title: "🎲 KẾT QUẢ BẦU CUA 🎲",
+                title: " KẾT QUẢ BẦU CUA ",
                 description: "Game đã kết thúc!\n\n" + resultMessage,
                 fields: [
                   {
@@ -534,7 +524,7 @@ export class BaucuaService {
                 embed: [
                   {
                     color: "#BCC0C0",
-                    title: "🎲 BẦU CUA BẮT ĐẦU 🎲",
+                    title: " BẦU CUA BẮT ĐẦU ",
                     description: `⏳ Còn ${i} giây để quay...`,
                   },
                 ],
