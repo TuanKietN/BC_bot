@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
 import { ChannelMessage } from 'mezon-sdk';
 @Injectable()
 export class UserService {
