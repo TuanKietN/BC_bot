@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn, Index, JoinColumn } from 'typeorm';
 import { BaucuaGame } from './baucua-game.entity';
 
-@Entity('baucuaWinner')
+@Entity('BaucuaWinner')
 @Index(['gameId'])
 @Index(['userId'])
 export class BaucuaWinner {

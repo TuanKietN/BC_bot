@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { MezonService } from '../../../mezon/mezon.service';
+import { MezonService } from '../../mezon/mezon.service';
 import { ChannelMessage, TokenSentEvent } from 'mezon-sdk';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThan, Like } from 'typeorm';
-import { UserBalance } from '../../models/user-balance.entity';
-import { TransactionLog } from '../../models/transaction-log.entity';
-import { TransactionSendLog } from '../../models/transaction-send-log.entity';
+import { UserBalance } from '../models/user-balance.entity';
+import { TransactionLog } from '../models/transaction-log.entity';
+import { TransactionSendLog } from '../models/transaction-send-log.entity';
 
 enum ETransactionType {
   DEPOSIT = 'DEPOSIT',

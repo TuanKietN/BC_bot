@@ -4,7 +4,7 @@ import { BaucuaDiceResult } from './baucua-dice-result.entity';
 import { BaucuaWinner } from './baucua-winner.entity';
 import { GameStatus } from '../../common/enums/bot.enum';
 
-@Entity('baucuaGame')
+@Entity('BaucuaGame')
 @Index(['channelId'])
 @Index(['status'])
 export class BaucuaGame {

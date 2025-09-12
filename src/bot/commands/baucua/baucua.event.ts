@@ -18,6 +18,12 @@ export class BaucuaEvent {
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessage(data: ChannelMessage) {
     try {
+      await this.baucuaService.ensureUserBalance(
+        data.sender_id,
+        data.username,
+        data.display_name,
+      );
+
       const text = data.content?.t?.trim() ?? '';
 
       if (text.startsWith('*bchistory')) {

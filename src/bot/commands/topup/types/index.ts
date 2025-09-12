@@ -12,6 +12,7 @@ interface MessageButtonClickedEvent {
   button_id: string;
   sender_id: string;
   user_id: string;
+  sender_name: string;
   extra_data: string;
 }
 

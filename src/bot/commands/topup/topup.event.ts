@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TopupService } from './topup.service';
+import { TopupService } from '../topup.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
 import { MessageButtonClickedEvent, TokenSentEventI } from './types';
@@ -10,7 +10,7 @@ export class TopupEvent {
   constructor(
     private readonly topupService: TopupService,
     private readonly mezon: MezonService,
-  ) {}
+  ) { }
 
   @OnEvent(Events.TokenSend)
   async handleTokenCreated(data: TokenSentEvent) {

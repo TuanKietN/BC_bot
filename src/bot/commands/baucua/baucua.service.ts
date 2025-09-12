@@ -1,3 +1,4 @@
+import { user_balance } from './../../../db/types';
 import { Injectable, Logger } from "@nestjs/common";
 import {
   ChannelMessage,
@@ -105,7 +106,12 @@ export class BaucuaService {
   /** Khởi tạo game */
   async createBaucua(message: ChannelMessage) {
     const existingGame = await this.gameRepo.findOne({
-      where: { channelId: message.channel_id, status: GameStatus.WAITING },
+      where: {
+        channelId: message.channel_id,
+        status: GameStatus.WAITING,
+        endedAt: IsNull(),
+        creatorId: message.sender_id,
+      },
     });
 
     if (existingGame) {
@@ -113,7 +119,7 @@ export class BaucuaService {
         type: "channel",
         payload: {
           channel_id: message.channel_id,
-          message: { type: "system", content: "Ván cược đã được tạo!" },
+          message: { type: "system", content: "Bạn đã có 1 ván cược đang chờ kết thúc!" },
         },
       });
       return;
@@ -189,7 +195,7 @@ export class BaucuaService {
   /** xử lý chọn cửa */
   async handleSelectChoice(userId: string, value: string, channelId: string) {
     const game = await this.gameRepo.findOne({
-      where: { channelId, status: GameStatus.WAITING, endedAt: IsNull() },
+      where: { channelId, status: GameStatus.WAITING, endedAt: IsNull(), creatorId: userId },
       order: { startedAt: "DESC" },
     });
     if (!game) return;
@@ -217,16 +223,14 @@ export class BaucuaService {
     const { button_id, user_id, channel_id } = data;
     const betAmount = parseInt(button_id, 10);
 
-    const user = await this.userBalanceRepo.findOne({
-      where: { user_id },
-    });
-    if (!user || user.balance < betAmount) return;
+    const user = await this.ensureUserBalance(user_id);
+    if (user.balance < betAmount) return;
 
     const choice = this.userChoices.get(`${user_id}_${channel_id}`);
     if (!choice) return;
 
     const game = await this.gameRepo.findOne({
-      where: { channelId: channel_id, status: GameStatus.WAITING, endedAt: IsNull() },
+      where: { channelId: channel_id, status: GameStatus.WAITING, endedAt: IsNull(), creatorId: user_id },
     });
     if (!game) return;
 
@@ -275,16 +279,22 @@ export class BaucuaService {
 
   /** hiển thị kết quả đặt cược */
   async handleBetResult(data: ChannelMessage) {
+    const user = await this.ensureUserBalance(
+      data.sender_id,
+      data.username,
+      data.display_name
+    );
+
     const game = await this.gameRepo.findOne({
       where: { channelId: data.channel_id, status: GameStatus.WAITING, endedAt: IsNull() },
       relations: ["bets"],
     });
     if (!game) return;
 
-    const user = await this.userBalanceRepo.findOne({
+    const user_balance = await this.userBalanceRepo.findOne({
       where: { user_id: data.sender_id },
     });
-    if (!user) return;
+    if (!user_balance) return;
 
     const bets = game.bets;
     const content =
@@ -526,5 +536,25 @@ export class BaucuaService {
         endedAt: new Date(),
       });
     }, 5000);
+  }
+
+  /** Tìm hoặc tạo user balance */
+  async ensureUserBalance(userId: string, username?: string, displayName?: string) {
+    let user = await this.userBalanceRepo.findOne({ where: { user_id: userId } });
+
+    const finalName = username ?? displayName ?? `User-${userId}`;
+
+    if (!user) {
+      user = this.userBalanceRepo.create({
+        user_id: userId,
+        username: finalName,
+        balance: 0,
+      });
+      await this.userBalanceRepo.save(user);
+    } else if (finalName && user.username !== finalName) {
+      user.username = finalName;
+      await this.userBalanceRepo.save(user);
+    }
+    return user;
   }
 }
