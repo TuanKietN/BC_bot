@@ -1,4 +1,3 @@
-import { user_balance } from './../../../db/types';
 import { Injectable, Logger } from "@nestjs/common";
 import {
   ChannelMessage,
@@ -105,25 +104,25 @@ export class BaucuaService {
 
   /** Khởi tạo game */
   async createBaucua(message: ChannelMessage) {
-    const existingGame = await this.gameRepo.findOne({
-      where: {
-        channelId: message.channel_id,
-        status: GameStatus.WAITING,
-        endedAt: IsNull(),
-        creatorId: message.sender_id,
-      },
-    });
+    // const existingGame = await this.gameRepo.findOne({
+    //   where: {
+    //     channelId: message.channel_id,
+    //     status: GameStatus.WAITING,
+    //     endedAt: IsNull(),
+    //     creatorId: message.sender_id,
+    //   },
+    // });
 
-    if (existingGame) {
-      await this.mezon.sendMessage({
-        type: "channel",
-        payload: {
-          channel_id: message.channel_id,
-          message: { type: "system", content: "Bạn đã có 1 ván cược đang chờ kết thúc!" },
-        },
-      });
-      return;
-    }
+    // if (existingGame) {
+    //   await this.mezon.sendMessage({
+    //     type: "channel",
+    //     payload: {
+    //       channel_id: message.channel_id,
+    //       message: { type: "system", content: "Bạn đã có 1 ván cược đang chờ kết thúc!" },
+    //     },
+    //   });
+    //   return;
+    // }
 
     const response = await this.mezon.sendMessage({
       type: "channel",
@@ -193,10 +192,14 @@ export class BaucuaService {
   }
 
   /** xử lý chọn cửa */
-  async handleSelectChoice(userId: string, value: string, channelId: string) {
+  async handleSelectChoice(userId: string, value: string, channelId: string, messageId: string) {
     const game = await this.gameRepo.findOne({
-      where: { channelId, status: GameStatus.WAITING, endedAt: IsNull(), creatorId: userId },
-      order: { startedAt: "DESC" },
+      where: {
+        channelId,
+        messageId,
+        status: GameStatus.WAITING,
+        endedAt: IsNull(),
+      },
     });
     if (!game) return;
 
@@ -220,7 +223,7 @@ export class BaucuaService {
 
   /** xử lý đặt tiền */
   async handleButtonClicked(data: MessageButtonClickedEvent) {
-    const { button_id, user_id, channel_id } = data;
+    const { button_id, user_id, channel_id, sender_name } = data;
     const betAmount = parseInt(button_id, 10);
 
     const user = await this.ensureUserBalance(user_id);
@@ -230,7 +233,12 @@ export class BaucuaService {
     if (!choice) return;
 
     const game = await this.gameRepo.findOne({
-      where: { channelId: channel_id, status: GameStatus.WAITING, endedAt: IsNull(), creatorId: user_id },
+      where: {
+        channelId: channel_id,
+        status: GameStatus.WAITING,
+        endedAt: IsNull(),
+        messageId: data.message_id,
+      },
     });
     if (!game) return;
 
@@ -413,7 +421,37 @@ export class BaucuaService {
       this.gameTimeouts.delete(gameId);
     }
 
-    const diceResults = this.generateDiceResults();
+    const bot = await this.ensureUserBalance("1954843632758427648", "BauCua");
+    const maxPossiblePayout = game.bets.reduce((acc, b) => acc + b.amount * 4, 0); 
+    
+    let diceResults = this.generateDiceResults();
+
+    // ❌ Nếu bot không đủ vốn => ép kết quả user thua
+    if (bot.balance < maxPossiblePayout) {
+      const allSymbols: DiceSymbol[] = [
+        DiceSymbol.GOURD,
+        DiceSymbol.CRAB,
+        DiceSymbol.ROOSTER,
+        DiceSymbol.DEER,
+        DiceSymbol.SHRIMP,
+        DiceSymbol.FISH,
+      ];
+
+      // Lấy toàn bộ symbol mà user đã đặt
+      const betSymbols = new Set(game.bets.map(b => b.symbol));
+
+      // Filter ra những symbol user KHÔNG đặt
+      const safeSymbols = allSymbols.filter(s => !betSymbols.has(s));
+
+      // Gán diceResults toàn bộ từ safeSymbols (user auto thua)
+      diceResults = [
+        safeSymbols[Math.floor(Math.random() * safeSymbols.length)],
+        safeSymbols[Math.floor(Math.random() * safeSymbols.length)],
+        safeSymbols[Math.floor(Math.random() * safeSymbols.length)],
+      ];
+    }
+
+    // Lưu dice vào DB
     for (let i = 0; i < diceResults.length; i++) {
       await this.diceRepo.save(
         this.diceRepo.create({ gameId, symbol: diceResults[i], position: i + 1 })
@@ -421,16 +459,17 @@ export class BaucuaService {
     }
 
     const symbolCount = new Map<DiceSymbol, number>();
-    diceResults.forEach((s) =>
-      symbolCount.set(s, (symbolCount.get(s) || 0) + 1)
-    );
+    diceResults.forEach(s => symbolCount.set(s, (symbolCount.get(s) || 0) + 1));
 
     const winnings = new Map<string, number>();
+    let totalLost = 0;
     for (const bet of game.bets) {
       const count = symbolCount.get(bet.symbol) || 0;
       if (count > 0) {
         const winAmount = bet.amount + bet.amount * count;
         winnings.set(bet.userId, (winnings.get(bet.userId) || 0) + winAmount);
+      } else {
+        totalLost += bet.amount;
       }
     }
 
@@ -474,7 +513,7 @@ export class BaucuaService {
       let resultMessage =
         "Xúc xắc: " +
         diceResults.map((s) => this.getSymbolEmoji(s)).join(" ") +
-        "\n\n";
+        "\n";
       if (winnings.size > 0) {
         resultMessage += `Người thắng:\n`;
         for (const [userId, amount] of winnings) {
@@ -497,7 +536,7 @@ export class BaucuaService {
             embed: [
               {
                 title: " KẾT QUẢ BẦU CUA ",
-                description: "Game đã kết thúc!\n\n" + resultMessage,
+                description: "Game đã kết thúc!\n" + resultMessage,
                 fields: [
                   {
                     name: "",
@@ -524,10 +563,17 @@ export class BaucuaService {
       });
 
       for (const [userId, amount] of winnings) {
+        await this.userBalanceRepo.increment({ user_id: userId }, "balance", amount);
+        await this.ensureUserBalance("1954843632758427648", "BauCua");
+        await this.userBalanceRepo.decrement({ user_id: "1954843632758427648" }, "balance", amount);
+      }
+
+      if (totalLost > 0) {
+        await this.ensureUserBalance("1954843632758427648", "BauCua");
         await this.userBalanceRepo.increment(
-          { user_id: userId },
+          { user_id: "1954843632758427648" },
           "balance",
-          amount
+          totalLost,
         );
       }
 
@@ -540,14 +586,15 @@ export class BaucuaService {
 
   /** Tìm hoặc tạo user balance */
   async ensureUserBalance(userId: string, username?: string, displayName?: string) {
-    let user = await this.userBalanceRepo.findOne({ where: { user_id: userId } });
+    this.logger.debug(`ensureUserBalance: userId=${userId}, username=${username}, displayName=${displayName}`);
 
-    const finalName = username ?? displayName ?? `User-${userId}`;
+    let user = await this.userBalanceRepo.findOne({ where: { user_id: userId } });
+    const finalName = username?.trim() || displayName?.trim();
 
     if (!user) {
       user = this.userBalanceRepo.create({
         user_id: userId,
-        username: finalName,
+        username: finalName || `User - ${userId}`,
         balance: 0,
       });
       await this.userBalanceRepo.save(user);
@@ -555,6 +602,8 @@ export class BaucuaService {
       user.username = finalName;
       await this.userBalanceRepo.save(user);
     }
+
+    this.logger.debug(`Saved user balance: ${JSON.stringify(user)}`);
     return user;
   }
 }

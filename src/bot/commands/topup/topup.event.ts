@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TopupService } from '../topup.service';
+import { TopupService } from './topup.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelMessage, Events, TokenSentEvent } from 'mezon-sdk';
 import { MessageButtonClickedEvent, TokenSentEventI } from './types';
@@ -19,19 +19,21 @@ export class TopupEvent {
 
   @OnEvent(Events.ChannelMessage)
   async handleChannelMessage(data: ChannelMessage) {
-    if (data.content.t === '*kttk') {
+    const text = data.content.t?.trim();
+
+    if (text === '*kttk') {
       await this.topupService.checkBalance(data);
     }
-  }
 
-  @OnEvent(Events.ChannelMessage)
-  async handleChannelMessageButtonClicked(data: ChannelMessage) {
     if (data.content.t?.startsWith('*rut')) {
-      const numberInString = data.content.t.match(/\d+/);
-      if (numberInString) {
-        const number = parseInt(numberInString[0]);
-        if (number) {
+      const numberInString = data.content.t.replace(/\D/g, '');
+      const number = parseInt(numberInString, 10);
+
+      if (Number.isFinite(number) && number > 0) {
+        try {
           await this.topupService.withdraw(data, number);
+        } catch (err) {
+          console.error('TopupEvent withdraw error:', err);
         }
       }
     }

@@ -19,6 +19,8 @@ import { BaucuaGame } from './bot/models/baucua-game.entity';
 import { BaucuaBet } from './bot/models/baucua-bet.entity';
 import { BaucuaDiceResult } from './bot/models/baucua-dice-result.entity';
 import { BaucuaWinner } from './bot/models/baucua-winner.entity';
+import { TransactionLog } from './bot/models/transaction-log.entity';
+import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
 
 @Module({
   imports: [
@@ -40,7 +42,7 @@ import { BaucuaWinner } from './bot/models/baucua-winner.entity';
         type: 'mysql',
         url: config.get<string>('DATABASE_URL'),
         driver: require('mysql2'),
-        entities: [UserBalance, BaucuaGame, BaucuaWinner, BaucuaBet, BaucuaDiceResult],
+        entities: [UserBalance, BaucuaGame, BaucuaWinner, BaucuaBet, BaucuaDiceResult, TransactionLog, TransactionSendLog],
         synchronize: false,
         migrations: ['src/migrations/*{.ts,.js}'],
         logging: true,

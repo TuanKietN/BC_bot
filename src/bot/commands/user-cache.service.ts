@@ -1,0 +1,282 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { UserBalance } from '../models/user-balance.entity';
+import { RedisCacheService, UserCache } from '../../redis/redis-cache.service';
+
+@Injectable()
+export class UserCacheService {
+   private readonly logger = new Logger(UserCacheService.name);
+   private readonly sqlLogger = new Logger(`${UserCacheService.name}:SQL`);
+
+   private userCache = new Map<string, UserCache>();
+   private readonly CACHE_SYNC_INTERVAL = 5 * 60000;
+   private readonly INACTIVE_USER_CLEANUP_INTERVAL = 10 * 60000;
+   private readonly INACTIVE_USER_THRESHOLD = 30 * 60000;
+   private readonly MAX_CONCURRENT_DB_UPDATES = 10;
+   private readonly BATCH_SIZE = 50;
+
+   constructor(
+      @InjectRepository(UserBalance)
+      private userBalanceRepo: Repository<UserBalance>,
+      private redisCacheService: RedisCacheService,
+   ) {
+      this.initializeCache();
+   }
+
+   private async initializeCache() {
+      setInterval(() => this.syncCacheToDatabase(), this.CACHE_SYNC_INTERVAL);
+      setInterval(() => this.cleanupInactiveUsers(), this.INACTIVE_USER_CLEANUP_INTERVAL);
+   }
+
+   /** ========== SYNC TO DATABASE ========== */
+   private async syncCacheToDatabase() {
+      try {
+         const usersToSync: Array<{ userId: string; userCache: UserCache }> = [];
+
+         for (const [userId, userCache] of this.userCache) {
+            if (Date.now() - userCache.lastUpdated <= this.CACHE_SYNC_INTERVAL + 60 * 1000) {
+               usersToSync.push({ userId, userCache });
+            }
+         }
+
+         if (usersToSync.length === 0) return;
+         await this.processBatchUpdates(usersToSync);
+      } catch (error) {
+         this.logger.error('Error syncing cache to database:', error);
+      }
+   }
+
+   private async processBatchUpdates(
+      users: Array<{ userId: string; userCache: UserCache }>,
+   ): Promise<PromiseSettledResult<any>[]> {
+      const allResults: PromiseSettledResult<any>[] = [];
+
+      for (let i = 0; i < users.length; i += this.BATCH_SIZE) {
+         const batch = users.slice(i, i + this.BATCH_SIZE);
+
+         try {
+            await this.bulkUpdateUsersWithCaseWhen(batch);
+         } catch (error) {
+            this.logger.error(`Bulk update failed, fallback to single updates:`, error);
+
+            const updatePromises = batch.map(({ userId, userCache }) =>
+               this.updateSingleUser(userId, userCache),
+            );
+
+            const batchResults = await this.limitConcurrency(
+               updatePromises,
+               this.MAX_CONCURRENT_DB_UPDATES,
+            );
+
+            allResults.push(...batchResults);
+         }
+      }
+
+      return allResults;
+   }
+
+   private async bulkUpdateUsersWithCaseWhen(
+      users: Array<{ userId: string; userCache: UserCache }>,
+   ): Promise<void> {
+      if (users.length === 0) return;
+
+      const userIds = users.map(({ userId }) => userId);
+
+      const balanceCases = users
+         .map(({ userId, userCache }) => `WHEN user_id = '${userId}' THEN ${Number(userCache.amount)}`)
+         .join(' ');
+
+      const usernameCases = users
+         .map(
+            ({ userId, userCache }) =>
+               `WHEN user_id = '${userId}' THEN '${(userCache.username || '').replace(/'/g, "''")}'`,
+         )
+         .join(' ');
+
+      const queryBuilder = this.userBalanceRepo
+         .createQueryBuilder()
+         .update(UserBalance)
+         .set({
+            balance: () => `CASE ${balanceCases} END`,
+            username: () => `CASE ${usernameCases} END`,
+         })
+         .whereInIds(userIds);
+
+      await queryBuilder.execute();
+   }
+
+   private async updateSingleUser(userId: string, userCache: UserCache): Promise<void> {
+      await this.userBalanceRepo.update(
+         { user_id: userId },
+         {
+            balance: Number(userCache.amount),
+            username: userCache.username,
+         },
+      );
+   }
+
+   private async limitConcurrency<T>(
+      promises: Promise<T>[],
+      limit: number,
+   ): Promise<PromiseSettledResult<T>[]> {
+      const results: PromiseSettledResult<T>[] = [];
+
+      for (let i = 0; i < promises.length; i += limit) {
+         const chunk = promises.slice(i, i + limit);
+         const chunkResults = await Promise.allSettled(chunk);
+         results.push(...chunkResults);
+      }
+
+      return results;
+   }
+
+   /** ========== CLEANUP ========== */
+   private async cleanupInactiveUsers() {
+      try {
+         const now = Date.now();
+         const usersToRemove: string[] = [];
+
+         for (const [userId, userCache] of this.userCache) {
+            if (now - userCache.lastUpdated > this.INACTIVE_USER_THRESHOLD) {
+               usersToRemove.push(userId);
+            }
+         }
+
+         usersToRemove.forEach((userId) => this.userCache.delete(userId));
+      } catch (error) {
+         this.logger.error('Error cleaning inactive users:', error);
+      }
+   }
+
+   /** ========== MAIN METHODS ========== */
+   async getUserFromCache(userId: string): Promise<UserCache | null> {
+      try {
+         const memoryCache = this.userCache.get(userId);
+         if (memoryCache) {
+            memoryCache.lastUpdated = Date.now();
+            return memoryCache;
+         }
+
+         let redisCache = await this.redisCacheService.getUserCache(userId);
+         if (redisCache) {
+            redisCache.lastUpdated = Date.now();
+            this.userCache.set(userId, redisCache);
+            return redisCache;
+         }
+
+         const user = await this.userBalanceRepo.findOne({ where: { user_id: userId } });
+         if (!user) return null;
+
+         const userCache: UserCache = {
+            user_id: user.user_id,
+            amount: Number(user.balance) || 0,
+            username: user.username || '',
+            lastUpdated: Date.now(),
+         };
+
+         this.userCache.set(userId, userCache);
+         await this.redisCacheService.setUserCache(userId, userCache);
+
+         return userCache;
+      } catch (error) {
+         this.logger.error(`Error getting user cache for ${userId}:`, error);
+         return null;
+      }
+   }
+
+   async createUserIfNotExists(userId: string, username?: string): Promise<UserCache | null> {
+      try {
+         const existingUser = await this.getUserFromCache(userId);
+         if (existingUser) return existingUser;
+
+         const newUser = this.userBalanceRepo.create({
+            user_id: userId,
+            username: username || '',
+            balance: 0,
+         });
+         await this.userBalanceRepo.save(newUser);
+
+         const userCache: UserCache = {
+            user_id: userId,
+            amount: 0,
+            username: username || '',
+            lastUpdated: Date.now(),
+         };
+
+         this.userCache.set(userId, userCache);
+         await this.redisCacheService.setUserCache(userId, userCache);
+         return userCache;
+      } catch (error) {
+         this.logger.error(`Error creating user ${userId}:`, error);
+         return null;
+      }
+   }
+
+   async updateUserCache(userId: string, updates: Partial<UserCache>): Promise<void> {
+      try {
+         const cached = this.userCache.get(userId);
+         if (cached) {
+            Object.assign(cached, updates, { lastUpdated: Date.now() });
+         }
+         await this.redisCacheService.updateUserCache(userId, updates);
+      } catch (error) {
+         this.logger.error(`Error updating user cache for ${userId}:`, error);
+      }
+   }
+
+   async updateUserBalance(
+      userId: string,
+      amountChange: number,
+      lockTimeout: number = 5,
+   ): Promise<{ success: boolean; newBalance: number; error?: string }> {
+      const lockKey = `user_balance_${userId}`;
+      const lockAcquired = await this.redisCacheService.acquireLock(lockKey, lockTimeout);
+
+      if (!lockAcquired) {
+         return { success: false, newBalance: 0, error: 'Unable to acquire lock' };
+      }
+
+      try {
+         const user = await this.getUserFromCache(userId);
+         if (!user) return { success: false, newBalance: 0, error: 'User not found' };
+
+         const currentBalance = Number(user.amount) || 0;
+         const newBalance = currentBalance + amountChange;
+
+         if (newBalance < 0) {
+            return { success: false, newBalance: currentBalance, error: 'Insufficient balance' };
+         }
+
+         await this.updateUserCache(userId, { amount: newBalance });
+
+         return { success: true, newBalance };
+      } catch (error) {
+         this.logger.error(`Error updating balance for ${userId}:`, error);
+         return { success: false, newBalance: 0, error: error.message || 'Unknown error' };
+      } finally {
+         await this.redisCacheService.releaseLock(lockKey);
+      }
+   }
+
+   async getUserBalance(userId: string): Promise<{ balance: number; error?: string }> {
+      try {
+         const user = await this.getUserFromCache(userId);
+         if (!user) return { balance: 0, error: 'User not found' };
+         return { balance: Number(user.amount) || 0 };
+      } catch (error) {
+         this.logger.error(`Error getting balance for ${userId}:`, error);
+         return { balance: 0, error: error.message || 'Unknown error' };
+      }
+   }
+
+   async clearUserCache(userId: string): Promise<void> {
+      try {
+         this.userCache.delete(userId);
+         await this.redisCacheService.deleteUserCache(userId);
+         this.logger.log(`Cleared cache for user: ${userId}`);
+      } catch (error) {
+         this.logger.error(`Error clearing cache for ${userId}:`, error);
+      }
+   }
+}

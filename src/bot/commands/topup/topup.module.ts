@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { TopupService } from '../topup.service';
+import { TopupService } from './topup.service';
 import { TopupEvent } from './topup.event';
 import { MezonModule } from '../../../mezon/mezon.module';
 import { TypeOrmModule } from '@nestjs/typeorm';

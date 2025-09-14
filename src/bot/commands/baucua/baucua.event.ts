@@ -51,14 +51,50 @@ export class BaucuaEvent {
           data.user_id,
           data.extra_data,
           data.channel_id,
+          data.message_id,
         );
         return;
       }
 
-      // Button chọn tiền
       this.logger.debug(
         `📥 Button tiền: user=${data.user_id}, channel=${data.channel_id}, money=${data.button_id}`,
       );
+
+      // Check user đã chọn cửa chưa
+      const choice = this.baucuaService['userChoices'].get(
+        `${data.user_id}_${data.channel_id}`,
+      );
+      if (!choice) {
+        this.logger.warn(
+          `⚠️ User ${data.user_id} chưa chọn cửa nhưng bấm chọn tiền`,
+        );
+        await this.mezon.sendMessage({
+          type: 'channel',
+          payload: {
+            channel_id: data.channel_id,
+            message: { type: 'system', content: '👉 Bạn phải đặt cửa trước khi chọn số tiền!' },
+          },
+        });
+        return;
+      }
+
+      // Check số dư user trước khi gọi handleButtonClicked
+      const user = await this.baucuaService.ensureUserBalance(data.user_id);
+      const betAmount = parseInt(data.button_id, 10);
+      if (user.balance < betAmount) {
+        this.logger.warn(
+          `⚠️ User ${data.user_id} không đủ tiền. Balance=${user.balance}, Bet=${betAmount}`,
+        );
+        await this.mezon.sendMessage({
+          type: 'channel',
+          payload: {
+            channel_id: data.channel_id,
+            message: { type: 'system', content: '❌ Số dư không đủ để đặt cược!' },
+          },
+        });
+        return;
+      }
+
       await this.baucuaService.handleButtonClicked(data);
     } catch (error) {
       this.logger.error(`❌ Error handleMessageButtonClicked: ${error.message}`, error.stack);
