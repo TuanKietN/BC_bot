@@ -13,5 +13,7 @@ export const BauCuaSelect = {
          { label: "🦐 Tôm", value: "5" },
          { label: "🐟 Cá", value: "6" },
       ],
+      required: true,
+      valueSelected: null,
    },
 };

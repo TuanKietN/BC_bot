@@ -48,8 +48,11 @@ export type MezonUpdateMessage = {
   content: MezonPayloadContent;
 };
 
-export type MezonSendToken = {
-  user_id: string;
+export interface MezonSendToken {
+  sender_id?: string;
+  sender_name?: string;
+  receiver_id: string;
   amount: number;
   note?: string;
-};
+  extra_attribute?: string;
+}

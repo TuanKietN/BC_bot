@@ -1,0 +1,15 @@
+{
+  "frames": {
+    "deer.png":    { "frame": { "x": 0,   "y": 0,   "w": 384, "h": 384 } },
+    "gourd.png":   { "frame": { "x": 384, "y": 0,   "w": 384, "h": 384 } },
+    "rooster.png": { "frame": { "x": 768, "y": 0,   "w": 384, "h": 384 } },
+    "fish.png":    { "frame": { "x": 0,   "y": 384, "w": 384, "h": 384 } },
+    "crab.png":    { "frame": { "x": 384, "y": 384, "w": 384, "h": 384 } },
+    "shrimp.png":  { "frame": { "x": 768, "y": 384, "w": 384, "h": 384 } }
+  },
+  "meta": {
+    "image": "baucua.png",
+    "size": { "w": 1152, "h": 768 },
+    "scale": "1"
+  }
+}
