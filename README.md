@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+# Mezon-bot
+This is a mezon bot project
+=======
 # Hiroshima Bot Mezon
 
 A Mezon SDK bot implementing a card game (21) with the following features:
@@ -51,3 +55,4 @@ The project is written in TypeScript and uses:
 ## License
 
 ISC 
+>>>>>>> 36798ea3101631e68dec081990f4a634a570b3b6

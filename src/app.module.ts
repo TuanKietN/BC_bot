@@ -1,4 +1,10 @@
 import { Module } from '@nestjs/common';
+import * as Joi from 'joi';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { BotModule } from './bot/bot.module';
+import { MezonModule } from './mezon/mezon.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -28,6 +34,11 @@ import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
     ConfigModule.forRoot({
       isGlobal: true,
       validationSchema: Joi.object({
+        POSTGRES_HOST: Joi.string().required(),
+        POSTGRES_PORT: Joi.number().required(),
+        POSTGRES_USER: Joi.string().required(),
+        POSTGRES_PASSWORD: Joi.string().required(),
+        POSTGRES_DB: Joi.string().required(),
         MEZON_TOKEN: Joi.string().required(),
         DATABASE_URL: Joi.string().required(),
         REDIS_PORT: Joi.number().default(6379),
@@ -51,7 +62,23 @@ import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
 
     RedisModule,
     EventEmitterModule.forRoot(),
-    MezonModule,
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('POSTGRES_HOST'),
+        port: configService.get('POSTGRES_PORT'),
+        username: configService.get('POSTGRES_USER'),
+        password: configService.get('POSTGRES_PASSWORD'),
+        database: configService.get('POSTGRES_DB'),
+        autoLoadEntities: true,
+        synchronize: true,
+      }),
+    }),
+    MezonModule.forRootAsync({
+      imports: [ConfigModule],
+    }),
     BotModule,
     TopupModule,
     BaucuaModule,
@@ -59,7 +86,7 @@ import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
       rootPath: join(__dirname, '..', 'public'),
     }),
   ],
-  controllers: [AppController],
+  controllers: [AppController, HealthController],
   providers: [AppService],
 })
 export class AppModule { }
