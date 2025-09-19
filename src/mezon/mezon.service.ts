@@ -167,7 +167,7 @@ export class MezonService {
 
   async sendToken(data: MezonSendToken) {
     return this.mezonClient.sendToken({
-      receiver_id: data.receiver_id,
+      receiver_id: data.user_id,
       amount: data.amount,
       note: data.note,
     });

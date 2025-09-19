@@ -47,7 +47,6 @@ import { ConfigService } from '@nestjs/config';
 import { MezonClient } from 'mezon-sdk';
 import { MezonService } from './mezon.service';
 import { BotGateway } from '../bot/bot.gateway';
-import { MezonClientService } from './mezon-client.service';
 @Module({
   imports: [],
   providers: [
@@ -72,7 +71,6 @@ import { MezonClientService } from './mezon-client.service';
       inject: [ConfigService, Logger, BotGateway],
     },
     MezonService,
-    MezonClientService,
   ],
   exports: ['MEZON', MezonService],
 })
