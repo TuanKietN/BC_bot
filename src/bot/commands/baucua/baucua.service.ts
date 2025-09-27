@@ -412,11 +412,12 @@ export class BaucuaService {
 
   // Helper shuffle
   private shuffleArray<T>(arr: T[]): T[] {
-    for (let i = arr.length - 1; i > 0; i--) {
+    const clone = [...arr]; // tạo bản copy, không đụng vào array gốc
+    for (let i = clone.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
+      [clone[i], clone[j]] = [clone[j], clone[i]];
     }
-    return arr;
+    return clone;
   }
 
   private getSymbolEmoji(symbol: DiceSymbol): string {
