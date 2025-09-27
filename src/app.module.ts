@@ -13,14 +13,7 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
-// Import entities
-import { UserBalance } from './bot/models/user-balance.entity';
-import { BaucuaGame } from './bot/models/baucua-game.entity';
-import { BaucuaBet } from './bot/models/baucua-bet.entity';
-import { BaucuaDiceResult } from './bot/models/baucua-dice-result.entity';
-import { BaucuaWinner } from './bot/models/baucua-winner.entity';
-import { TransactionLog } from './bot/models/transaction-log.entity';
-import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
+import { AppDataSource } from './data-source';
 
 @Module({
   imports: [
@@ -34,19 +27,13 @@ import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
       }),
     }),
 
-    // TypeORM MySQL
+    // Use the AppDataSource with TypeOrmModule.forRootAsync
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'mysql',
-        url: config.get<string>('DATABASE_URL'),
-        driver: require('mysql2'),
-        entities: [UserBalance, BaucuaGame, BaucuaWinner, BaucuaBet, BaucuaDiceResult, TransactionLog, TransactionSendLog],
-        synchronize: false,
-        migrations: ['src/migrations/*{.ts,.js}'],
-        logging: true,
-      }),
+      useFactory: async (config: ConfigService) => {
+        return AppDataSource.options; // Trả về options từ AppDataSource
+      },
     }),
 
     RedisModule,

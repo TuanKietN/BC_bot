@@ -1,4 +1,4 @@
-# Hiroshima Bot Mezon
+# BauCua Bot Mezon
 
 A Mezon SDK bot implementing a card game (21) with the following features:
 - Command `*tx` to start a game and deal 3 cards

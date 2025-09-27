@@ -3,13 +3,14 @@ import { BaucuaBet } from './baucua-bet.entity';
 import { BaucuaDiceResult } from './baucua-dice-result.entity';
 import { BaucuaWinner } from './baucua-winner.entity';
 import { GameStatus } from '../../common/enums/bot.enum';
+import { v4 as uuidv4 } from 'uuid';
 
 @Entity('BaucuaGame')
 @Index(['channelId'])
 @Index(['status'])
 export class BaucuaGame {
    @PrimaryGeneratedColumn('uuid')
-   id: string;
+   id: string = uuidv4();
 
    @Column()
    channelId: string;

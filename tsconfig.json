@@ -16,6 +16,6 @@
     "emitDecoratorMetadata": true,
     "noFallthroughCasesInSwitch": false
   },
-  "include": ["src/**/*", "src/data-source.ts"],
+  "include": ["src/**/*", "src/data-source.ts", "src/migrations/1758820150836-CreateUserTable.ts"],
   "exclude": ["node_modules", "dist"]
 } 

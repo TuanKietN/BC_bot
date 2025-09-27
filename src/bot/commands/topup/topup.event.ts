@@ -37,5 +37,31 @@ export class TopupEvent {
         }
       }
     }
+
+    if (text === '*help') {
+      const content = `
+# BauCua Bot Mezon
+
+Các lệnh hiện có:
+
+- \`*bc\` - Bắt đầu một ván Bầu Cua
+- \`*bcbet\` - Xem kết quả đặt cược của ván hiện tại
+- \`*bchistory\` - Xem lịch sử 5 ván gần nhất
+- \`*kttk\` - Kiểm tra số dư tài khoản
+- \`*rut <số tiền>\` - Rút tiền khỏi tài khoản
+      `;
+
+      await this.mezon.sendMessage({
+        type: 'channel',
+        reply_to_message_id: data.message_id,
+        payload: {
+          channel_id: data.channel_id,
+          message: {
+            type: 'system',
+            content,
+          },
+        },
+      });
+    }
   }
 }

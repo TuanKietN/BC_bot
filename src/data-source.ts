@@ -11,10 +11,18 @@ import { TransactionSendLog } from './bot/models/transaction-send-log.entity';
 dotenv.config();
 
 export const AppDataSource = new DataSource({
-   type: 'mysql',
+   type: 'postgres',
    url: process.env.DATABASE_URL,
-   driver: require('mysql2'),
-   entities: [UserBalance, BaucuaGame, BaucuaBet, BaucuaDiceResult, BaucuaWinner, TransactionLog, TransactionSendLog],
+   driver: require('pg'),
+   entities: [
+      UserBalance,
+      BaucuaGame,
+      BaucuaBet,
+      BaucuaDiceResult,
+      BaucuaWinner,
+      TransactionLog,
+      TransactionSendLog
+   ],
    migrations: [__dirname + '/src/migrations/*{.ts,.js}'],
    synchronize: false,
    logging: true,
