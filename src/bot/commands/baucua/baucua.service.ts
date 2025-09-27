@@ -387,37 +387,12 @@ export class BaucuaService {
   /** random dice */
   private generateDiceResults(): DiceSymbol[] {
     const symbols = Object.values(DiceSymbol);
-    const rand = Math.random();
-
-    if (rand < 0.01) {
-      // 🎲 1% => cả 3 mặt giống nhau
-      const sym = symbols[Math.floor(Math.random() * symbols.length)];
-      return [sym, sym, sym];
-    } else if (rand < 0.20) {
-      // 🎲 19% => 2 mặt giống nhau
-      const sym1 = symbols[Math.floor(Math.random() * symbols.length)];
-      let sym2 = sym1;
-      while (sym2 === sym1) {
-        sym2 = symbols[Math.floor(Math.random() * symbols.length)];
-      }
-      // random vị trí cho cặp đôi
-      const results: DiceSymbol[] = [sym1, sym1, sym2];
-      return this.shuffleArray(results);
-    } else {
-      // 🎲 80% => 3 mặt khác nhau
-      const shuffled = this.shuffleArray([...symbols]);
-      return shuffled.slice(0, 3);
+    const result: DiceSymbol[] = [];
+    for (let i = 0; i < 3; i++) {
+      const randomIndex = Math.floor(Math.random() * symbols.length);
+      result.push(symbols[randomIndex]);
     }
-  }
-
-  // Helper shuffle
-  private shuffleArray<T>(arr: T[]): T[] {
-    const clone = [...arr]; // tạo bản copy, không đụng vào array gốc
-    for (let i = clone.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [clone[i], clone[j]] = [clone[j], clone[i]];
-    }
-    return clone;
+    return result;
   }
 
   private getSymbolEmoji(symbol: DiceSymbol): string {
@@ -447,8 +422,8 @@ export class BaucuaService {
     }
 
     const bot = await this.ensureUserBalance("1954843632758427648", "BauCua");
-    const maxPossiblePayout = game.bets.reduce((acc, b) => acc + b.amount * 4, 0);
-
+    const maxPossiblePayout = game.bets.reduce((acc, b) => acc + b.amount * 4, 0); 
+    
     let diceResults = this.generateDiceResults();
 
     // ❌ Nếu bot không đủ vốn => ép kết quả user thua
