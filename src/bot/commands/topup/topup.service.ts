@@ -6,6 +6,7 @@ import { Repository, MoreThan, Like } from 'typeorm';
 import { UserBalance } from '../../models/user-balance.entity';
 import { TransactionLog } from '../../models/transaction-log.entity';
 import { TransactionSendLog } from '../../models/transaction-send-log.entity';
+import { randomUUID } from 'crypto';
 
 enum ETransactionType {
   DEPOSIT = 'DEPOSIT',
@@ -36,9 +37,14 @@ export class TopupService {
     if (data.receiver_id === botId) {
       const userId = data.sender_id;
 
+      let txId = data.extra_attribute?.trim();
+      if (!txId || !/^[0-9a-fA-F-]{36}$/.test(txId)) {
+        txId = randomUUID();
+      }
+
       // tránh ghi log trùng
       const exists = await this.transactionLogRepo.findOne({
-        where: { transactionId: data.extra_attribute },
+        where: { transactionId: txId },
       });
       if (exists) return;
 

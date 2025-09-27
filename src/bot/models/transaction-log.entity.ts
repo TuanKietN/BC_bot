@@ -22,7 +22,7 @@ export class TransactionLog {
    @Column()
    amount: number;
 
-   @Column({ type: 'uuid', default: () => "gen_random_uuid()" })
+   @Column({ type: 'varchar', length: 255, unique: true })
    transactionId: string;
 
    @Column({
