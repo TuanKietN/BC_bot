@@ -1,10 +1,6 @@
 # BauCua Bot Mezon
 
-A Mezon SDK bot implementing a card game (21) with the following features:
-- Command `*tx` to start a game and deal 3 cards
-- Options to draw more cards, reveal cards, or fold
-- Interactive gameplay with reaction buttons
-- Score calculation and game state management
+A Mezon SDK bot implementing a Bau Cua game
 
 ## Setup
 
