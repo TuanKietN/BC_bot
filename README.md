@@ -1,6 +1,13 @@
 # BauCua Bot Mezon
 
-A Mezon SDK bot implementing a Bau Cua game
+A Mezon SDK bot deploys the BauCua game with the following features:
+
+- Command *bc
+ to start the game
+
+- Option of the door you want to bet, choose the amount you want to bet
+- The game will start and spin randomly within 6 seconds
+- Return the result whether the player has won or lost the bet
 
 ## Setup
 
